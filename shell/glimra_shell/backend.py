@@ -420,6 +420,15 @@ class Backend(QObject):
 
     # ------------------------------------------------------------ Hilfsfunktionen
     def _main_ip(self) -> str:
+        # Die Adresse, über die der PC ins Netz geht (nicht virbr0/docker0 o. Ä.)
+        if IS_LINUX and shutil.which("ip"):
+            try:
+                out = subprocess.run(["ip", "-4", "route", "get", "1.1.1.1"], capture_output=True,
+                                     text=True, timeout=3).stdout.split()
+                if "src" in out:
+                    return out[out.index("src") + 1]
+            except (OSError, subprocess.SubprocessError, IndexError):
+                pass
         for n in self.networkInfo():
             if n["ipv4"] != "–":
                 return n["ipv4"].split(",")[0]

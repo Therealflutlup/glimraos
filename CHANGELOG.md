@@ -2,6 +2,21 @@
 
 Alle wichtigen Änderungen an Glimra OS. Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.2.0] – 2026-11-27 „Funke“
+
+### Neu
+- **GlimraApp steuert jetzt auch Windows-PCs.** Der Glimra Setup-Manager hat die neue Seite „Handy verbinden“
+  mit Kopplungscode, gekoppelten Geräten und Autostart (`GlimraSetup.exe --agent` läuft unsichtbar im Hintergrund).
+- Neue Funktionen in der App für Windows-PCs: Bildschirm ansehen, laufende Programme sehen und beenden,
+  Programme starten, Fenster-Nachricht, angemeldete Benutzer und Domäne anzeigen, Benutzer abmelden, Ruhezustand.
+  Die App blendet nur ein, was das Gerät kann.
+- Vorbereitet für die Benutzerverwaltung im Heimnetz: Der Agent meldet Domäne (z. B. heim.lan) und alle
+  angemeldeten Benutzer.
+- GlimraApp nennt bei „Nicht erreichbar“ den Grund (abgelehnt, keine Antwort, falsche Adresse).
+
+### Behoben
+- Glimra OS zeigt bei „Handy verbinden“ die IP-Adresse der Standardverbindung (nicht virbr0/docker0).
+
 ## [1.1.0] – 2026-11-27 „Funke“
 
 ### Neu

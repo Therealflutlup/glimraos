@@ -109,7 +109,7 @@ jobs:
             --icon windows/glimra_setup/assets/glimra.ico `
             --version-file windows/version_info.txt `
             --add-data "windows/glimra_setup/assets;glimra_setup/assets" `
-            --paths windows windows/run_setup.py
+            --paths windows --paths shell --hidden-import glimra_shell.remote windows/run_setup.py
       - uses: actions/upload-artifact@v4
         with:
           name: exe

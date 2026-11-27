@@ -91,6 +91,22 @@ Rechtsklick auf die Titelleiste öffnet das Fenstermenü. Der schmale Streifen g
 
 Ist die Firewall an, sind die nötigen Ports (8765, 8766) automatisch freigegeben.
 
+### Windows-PC vom Handy steuern
+
+Die GlimraApp steuert auch Windows-PCs – mit zusätzlichen Funktionen für die PC-Verwaltung.
+
+1. `GlimraSetup.exe` starten → **Handy verbinden (GlimraApp)**. Der Code wird angezeigt.
+2. Beim ersten Mal fragt die Windows-Firewall nach: **Zugriff zulassen** für private Netzwerke.
+3. In der Handy-App den PC suchen (oder IP-Adresse eingeben) und den Code eingeben.
+4. Häkchen bei **„Beim Windows-Start automatisch im Hintergrund starten“** setzen, damit das Handy den PC
+   auch steuern kann, wenn der Setup-Manager geschlossen ist.
+
+Zusätzlich zu Sperren, Zwischenablage, Dateien, Ton, Medien und Ausschalten kann die App unter Windows:
+**Bildschirm ansehen**, **laufende Programme sehen und beenden** (Windows-Prozesse sind geschützt),
+**Programme starten** (Explorer, Browser, Task-Manager, Editor, Rechner, Einstellungen), **Fenster-Nachricht**
+anzeigen, **angemeldete Benutzer und Domäne** sehen, **Benutzer abmelden** und **Ruhezustand**.
+Ist der PC in einer Domäne (z. B. `heim.lan`), zeigt die App die Domäne und alle angemeldeten Benutzer an.
+
 ## 9. Von Windows umziehen
 
 **Übers Netzwerk:** In Glimra OS die App **Umzug** öffnen → „Empfang einschalten“. Unter Windows `GlimraSetup.exe` →

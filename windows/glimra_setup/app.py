@@ -15,7 +15,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import __version__, core
+from . import __version__, agent, core
 
 BG = "#0d1020"
 PANEL = "#161a2c"
@@ -52,6 +52,8 @@ class App(tk.Tk):
         self.cancel_flag = False
         self.iso_path: Path | None = None
         self.busy = False
+        self.remote = None          # Agent im Setup-Manager (falls keiner im Hintergrund läuft)
+        self._remote_after = None
 
         style = ttk.Style(self)
         style.theme_use("clam")
@@ -65,6 +67,9 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------ Bausteine
     def clear(self) -> None:
+        if self._remote_after:
+            self.after_cancel(self._remote_after)
+            self._remote_after = None
         for w in self.container.winfo_children():
             w.destroy()
 
@@ -172,9 +177,14 @@ class App(tk.Tk):
             ("download", "2. Glimra OS herunterladen", "Neueste Desktop- oder Server-ISO laden.", self.show_download),
             ("drive", "3. USB-Stick erstellen", "Startfähigen Stick mit Rufus erstellen.", self.show_usb),
             ("transfer", "4. Daten umziehen", "Dokumente, Bilder, Lesezeichen & Co. mitnehmen.", self.show_transfer),
+            ("network", "Handy verbinden (GlimraApp)", "Diesen Windows-PC vom Handy steuern: sperren, Bildschirm, Programme, Ton, Dateien.", self.show_remote),
         ]
         for i, (icon, title, text, cmd) in enumerate(items):
-            self.card(grid, icon, title, text, cmd).grid(row=i // 2, column=i % 2, sticky="nsew", padx=8, pady=8)
+            c = self.card(grid, icon, title, text, cmd)
+            if i == 4:
+                c.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=8, pady=8)
+            else:
+                c.grid(row=i // 2, column=i % 2, sticky="nsew", padx=8, pady=8)
         tk.Label(self.container, text=f"Glimra Setup-Manager {__version__} · deine Dateien bleiben auf diesem PC, bis du sie selbst überträgst.",
                  bg=BG, fg=DIM, font=(FONT, 9)).pack(side="bottom", anchor="w")
 
@@ -387,14 +397,124 @@ class App(tk.Tk):
         self.button(btns, "Umzug starten", start, primary=True).pack(side="left")
         self.button(btns, "Abbrechen", lambda: setattr(self, "cancel_flag", True)).pack(side="left", padx=10)
 
+    # ------------------------------------------------------------ Handy verbinden
+    def _remote_info(self) -> dict | None:
+        """Infos vom Agenten: eigener Server im Setup-Manager oder Hintergrund-Agent (Autostart)."""
+        if self.remote is not None:
+            return self.remote.info()
+        try:
+            return agent.local_call("/local/info")
+        except OSError:
+            return None
+
+    def show_remote(self) -> None:
+        self.clear()
+        self.header("Handy verbinden",
+                    "Mit der GlimraApp (Android) steuerst du diesen PC: sperren, Bildschirm ansehen, Programme beenden, "
+                    "Nachrichten, Ton, Zwischenablage, Dateien senden, Ausschalten.")
+        if self.remote is None and not agent.agent_running():
+            self.remote = agent.make_server(notify_ui=lambda t: self.q.put(("call", lambda: None)))
+            if not self.remote.start():
+                self.remote = None
+                messagebox.showerror("Glimra", "Port 8765 ist belegt – läuft ein anderes Programm darauf?")
+        box = tk.Frame(self.container, bg=BG)
+        box.pack(fill="both", expand=True)
+
+        st = tk.Frame(box, bg=CARD, highlightthickness=1, highlightbackground=BORDER)
+        st.pack(fill="x")
+        state = tk.Label(st, text="", bg=CARD, fg=TEXT, font=(FONT, 12, "bold"), anchor="w")
+        state.pack(fill="x", padx=16, pady=(12, 0))
+        tk.Label(st, text="Auf dem Handy: GlimraApp öffnen → Suchen (oder IP-Adresse eingeben) → diesen Code eingeben:",
+                 bg=CARD, fg=DIM, font=(FONT, 10), anchor="w").pack(fill="x", padx=16)
+        coderow = tk.Frame(st, bg=CARD)
+        coderow.pack(anchor="w", padx=16, pady=12)
+        digits = [tk.Label(coderow, text="-", bg="#20263d", fg=TEXT, font=(FONT, 26, "bold"), width=2,
+                           highlightthickness=1, highlightbackground=ACCENT) for _ in range(6)]
+        for d in digits:
+            d.pack(side="left", padx=3)
+
+        def new_code():
+            if self.remote is not None:
+                self.remote.new_pair_code()
+            else:
+                try:
+                    agent.local_call("/local/newcode", {})
+                except OSError:
+                    pass
+            refresh()
+        self.button(coderow, "Neuer Code", new_code).pack(side="left", padx=14)
+
+        tk.Label(box, text="Gekoppelte Handys", bg=BG, fg=DIM, font=(FONT, 10, "bold")).pack(anchor="w", pady=(16, 4))
+        devbox = tk.Frame(box, bg=BG)
+        devbox.pack(fill="x")
+
+        opt = tk.Frame(box, bg=BG)
+        opt.pack(fill="x", pady=(14, 0))
+        auto = tk.BooleanVar(value=agent.autostart_enabled())
+
+        def toggle_auto():
+            agent.set_autostart(auto.get())
+            if auto.get() and self.remote is not None:
+                messagebox.showinfo("Glimra", "Ab dem nächsten Windows-Start läuft der Agent unsichtbar im Hintergrund. "
+                                              "Das Handy kann den PC dann auch steuern, wenn der Setup-Manager zu ist.")
+        tk.Checkbutton(opt, text="  Beim Windows-Start automatisch im Hintergrund starten", variable=auto, command=toggle_auto,
+                       bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG, activeforeground=TEXT,
+                       font=(FONT, 11), cursor="hand2").pack(anchor="w")
+        tk.Label(opt, text="Fragt die Windows-Firewall beim ersten Mal nach, bitte „Zugriff zulassen“ für private Netzwerke wählen. "
+                           "Handy und PC müssen im selben WLAN sein (kein Gäste-WLAN).",
+                 bg=BG, fg=DIM, font=(FONT, 10), wraplength=780, justify="left").pack(anchor="w", pady=(4, 0))
+
+        shown: list = [None]
+
+        def refresh():
+            info = self._remote_info()
+            if not state.winfo_exists():
+                return
+            if not info:
+                state.configure(text="Agent läuft nicht", fg=BAD)
+            else:
+                where = "im Setup-Manager" if self.remote is not None else "im Hintergrund"
+                state.configure(text=f"Aktiv {where} – erreichbar unter {agent.main_ip()}:{info['port']}", fg=OK)
+                for d, ch in zip(digits, info["code"], strict=False):
+                    d.configure(text=ch)
+                key = [(d["name"], d["since"]) for d in info["devices"]]
+                if key != shown[0]:
+                    shown[0] = key
+                    for w in devbox.winfo_children():
+                        w.destroy()
+                    if not key:
+                        tk.Label(devbox, text="Noch keine.", bg=BG, fg=DIM, font=(FONT, 11)).pack(anchor="w")
+                    for name, since in key:
+                        row = tk.Frame(devbox, bg=CARD, highlightthickness=1, highlightbackground=BORDER)
+                        row.pack(fill="x", pady=3)
+                        tk.Label(row, text=name, bg=CARD, fg=TEXT, font=(FONT, 11, "bold")).pack(side="left", padx=14, pady=8)
+                        tk.Label(row, text="gekoppelt " + since, bg=CARD, fg=DIM, font=(FONT, 10)).pack(side="left")
+
+                        def remove(n=name):
+                            if self.remote is not None:
+                                self.remote.remove_device(n)
+                            else:
+                                try:
+                                    agent.local_call("/local/remove", {"name": n})
+                                except OSError:
+                                    pass
+                            refresh()
+                        self.button(row, "Entfernen", remove, danger=True).pack(side="right", padx=8, pady=4)
+            self._remote_after = self.after(3000, refresh)
+        refresh()
+
 
 def main() -> None:
     if sys.platform == "win32":
         try:
             import ctypes
-            ctypes.windll.shcore.SetProcessDpiAwareness(1)  # scharfe Schrift auf hochauflösenden Bildschirmen
+            # scharfe Schrift und echte Bildschirmgröße (auch für Bildschirmfotos des Agenten)
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
         except Exception:  # noqa: BLE001
             pass
+    if "--agent" in sys.argv:
+        agent.run_headless()
+        return
     App().mainloop()
 
 

@@ -63,7 +63,7 @@
 
 <!-- Startseite: Geräte -->
 <section id="home" class="screen active">
-  <header><div class="logo"></div><div><h1>GlimraApp</h1><p>Steuere deinen Glimra-OS-PC vom Handy</p></div></header>
+  <header><div class="logo"></div><div><h1>GlimraApp</h1><p>Steuere deine PCs vom Handy – Glimra OS und Windows</p></div></header>
   <div class="label">Meine Geräte</div>
   <div id="saved"></div>
   <div class="label">Im WLAN gefunden</div>
@@ -77,7 +77,7 @@
   <header><div class="back" data-back><img class="ic" src="icons/chevron.svg" style="transform:rotate(180deg)"></div>
     <div><h1>Koppeln</h1><p id="pairName"></p></div></header>
   <div class="card">
-    <p style="margin:0 0 12px;color:var(--dim);font-size:14px">Öffne am PC die App <b style="color:var(--text)">GlimraApp</b> und gib den 6-stelligen Code ein:</p>
+    <p style="margin:0 0 12px;color:var(--dim);font-size:14px">Öffne am PC die App <b style="color:var(--text)">GlimraApp</b> (Glimra OS) bzw. im <b style="color:var(--text)">Glimra Setup-Manager</b> „Handy verbinden“ (Windows) und gib den 6-stelligen Code ein:</p>
     <div class="code" id="codeBoxes"></div>
     <button class="btn primary" id="pairBtn">Verbinden</button>
   </div>
@@ -93,7 +93,9 @@
     <div class="stat">
       <div>Arbeitsspeicher<b id="stRam">–</b></div><div>Laufzeit<b id="stUp">–</b></div>
       <div>IP-Adresse<b id="stIp">–</b></div><div>Akku<b id="stBat">–</b></div>
+      <div id="stDiskBox" style="display:none">Speicher<b id="stDisk">–</b></div><div id="stDomBox" style="display:none">Domäne<b id="stDom">–</b></div>
     </div>
+    <div id="stUsers" style="display:none;margin-top:10px;color:var(--dim);font-size:12.5px"></div>
   </div>
   <div class="label">Steuerung</div>
   <div class="grid">
@@ -113,8 +115,20 @@
     <div class="act" data-cmd="media-play-pause"><div class="tile g-green"><img class="ic" src="icons/play.svg"></div>Play/Pause</div>
     <div class="act" data-cmd="media-next"><div class="tile g-green"><img class="ic" src="icons/chevron.svg"></div>Weiter</div>
   </div>
+  <div id="adminBox" style="display:none">
+  <div class="label">PC-Verwaltung</div>
+  <div class="grid">
+    <div class="act" data-cmd="screen"><div class="tile g-blue"><img class="ic" src="icons/camera.svg"></div>Bildschirm ansehen</div>
+    <div class="act" data-cmd="procs"><div class="tile g-green"><img class="ic" src="icons/taskman.svg"></div>Programme</div>
+    <div class="act" data-cmd="launch"><div class="tile g-purple"><img class="ic" src="icons/apps.svg"></div>Programm starten</div>
+    <div class="act" data-cmd="message"><div class="tile g-orange"><img class="ic" src="icons/info.svg"></div>Fenster-Nachricht</div>
+    <div class="act" data-cmd="users"><div class="tile g-cyan"><img class="ic" src="icons/user.svg"></div>Benutzer</div>
+    <div class="act" data-cmd="logoff"><div class="tile g-red"><img class="ic" src="icons/user.svg"></div>Abmelden</div>
+  </div>
+  </div>
   <div class="label">Energie</div>
   <div class="grid">
+    <div class="act" data-cmd="hibernate" id="hibBtn" style="display:none"><div class="tile g-grey"><img class="ic" src="icons/moon.svg"></div>Ruhezustand</div>
     <div class="act" data-cmd="suspend"><div class="tile g-blue"><img class="ic" src="icons/moon.svg"></div>Energie sparen</div>
     <div class="act" data-cmd="reboot"><div class="tile g-orange"><img class="ic" src="icons/reboot.svg"></div>Neu starten</div>
     <div class="act" data-cmd="poweroff"><div class="tile g-red"><img class="ic" src="icons/power.svg"></div>Ausschalten</div>
@@ -253,6 +267,14 @@ async function refreshStatus() {
     $("ctlState").innerHTML = '<span class="dot"></span>verbunden';
     $("stUser").textContent = r.data.user + " auf " + r.data.hostname; $("stOs").textContent = r.data.os;
     $("stRam").textContent = r.data.ram; $("stUp").textContent = r.data.uptime; $("stIp").textContent = r.data.ip; $("stBat").textContent = r.data.battery;
+    const f = r.data.features || []; current.features = f; current.launch = r.data.launch || [];
+    $("adminBox").style.display = f.includes("screen") || f.includes("processes") ? "" : "none";
+    $("hibBtn").style.display = f.includes("hibernate") ? "" : "none";
+    $("stDiskBox").style.display = r.data.disk ? "" : "none"; $("stDisk").textContent = r.data.disk || "";
+    $("stDomBox").style.display = r.data.domain ? "" : "none"; $("stDom").textContent = r.data.domain || "";
+    const us = r.data.users || [];
+    $("stUsers").style.display = us.length ? "" : "none";
+    $("stUsers").textContent = us.length ? "Angemeldet: " + us.map(u => u.user + (u.state === "aktiv" ? "" : " (getrennt)")).join(", ") : "";
   } else if (r.status === 401) {
     $("ctlState").innerHTML = '<span class="dot off"></span>Kopplung abgelaufen – Gerät entfernen und neu koppeln';
   } else {
@@ -291,6 +313,64 @@ document.querySelectorAll("[data-cmd]").forEach(el => el.onclick = async () => {
     const host = current.host.split("/")[0];
     const r = await call("pickFile", host, current.token);
     if (r.status === 200) toast("Datei gesendet – liegt in Downloads"); else if (r.data.error !== "abgebrochen") toast(r.data.error || "Fehlgeschlagen");
+    return;
+  }
+  if (c === "screen") {
+    openSheet("Bildschirm", `<div class="empty">Wird geladen …</div>`);
+    const r = await http("GET", "http://" + current.host + "/screen", current.token);
+    if (r.status === 200 && r.data.png) {
+      $("sheetBody").innerHTML = `<img src="data:image/png;base64,${r.data.png}" style="width:100%;border-radius:12px;border:1px solid var(--border)">
+        <button class="btn" id="scrAgain">${icon("refresh")}Neu laden</button><button class="btn" id="scrClose">Schließen</button>`;
+      $("scrAgain").onclick = () => { closeSheet(); el.click() }; $("scrClose").onclick = closeSheet;
+    } else { closeSheet(); toast(r.data.error || "Bildschirm nicht verfügbar") }
+    return;
+  }
+  if (c === "procs") {
+    openSheet("Laufende Programme", `<div class="empty">Wird geladen …</div>`);
+    const r = await http("GET", "http://" + current.host + "/processes", current.token);
+    if (r.status !== 200) { closeSheet(); toast(r.data.error || "Nicht verfügbar"); return }
+    const list = r.data.processes || [];
+    $("sheetBody").innerHTML = `<div style="max-height:55vh;overflow:auto">` + list.map(p =>
+      `<div class="row" style="padding:9px 4px;border-bottom:1px solid var(--border)"><div class="grow"><b>${esc(p.name)}</b>
+       <div style="color:var(--dim);font-size:12px">${esc(p.memText)} · PID ${p.pid}</div></div>
+       ${p.protected ? "" : `<button class="btn danger" style="width:auto;margin:0;padding:8px 12px" data-kill="${p.pid}" data-name="${esc(p.name)}">Beenden</button>`}</div>`).join("") +
+      `</div><button class="btn" id="prClose">Schließen</button>`;
+    $("prClose").onclick = closeSheet;
+    $("sheetBody").querySelectorAll("[data-kill]").forEach(b => b.onclick = async () => {
+      const r2 = await http("POST", "http://" + current.host + "/kill", current.token, { pid: +b.dataset.kill });
+      toast(r2.status === 200 ? b.dataset.name + " beendet" : (r2.data.error || "Fehlgeschlagen"));
+      if (r2.status === 200) b.closest(".row").remove();
+    });
+    return;
+  }
+  if (c === "launch") {
+    const apps = current.launch || [];
+    openSheet("Programm starten", apps.map(a => `<button class="btn" data-app="${a.id}">${icon("apps")}${esc(a.name)}</button>`).join("") || `<div class="empty">Keine Programme</div>`);
+    $("sheetBody").querySelectorAll("[data-app]").forEach(b => b.onclick = () => { closeSheet(); post("/launch", { app: b.dataset.app }, "Wird gestartet") });
+    return;
+  }
+  if (c === "message") {
+    openSheet("Fenster-Nachricht", `<textarea id="sText" placeholder="Erscheint als Fenster auf dem PC …"></textarea><button class="btn primary" id="sSend">${icon("send")}Anzeigen</button>`);
+    $("sSend").onclick = () => { const v = $("sText").value; if (!v) return; closeSheet(); post("/message", { text: v }, "Nachricht angezeigt") };
+    return;
+  }
+  if (c === "users") {
+    const r = await http("GET", "http://" + current.host + "/users", current.token);
+    if (r.status !== 200) { toast(r.data.error || "Nicht verfügbar"); return }
+    const us = r.data.users || [];
+    openSheet("Benutzer", (r.data.domain ? `<p style="color:var(--dim)">Domäne: <b style="color:var(--text)">${esc(r.data.domain)}</b></p>` : `<p style="color:var(--dim)">Kein Domänen-PC (lokale Konten)</p>`) +
+      us.map(u => `<div class="row" style="padding:9px 4px;border-bottom:1px solid var(--border)"><div class="grow"><b>${esc(u.user)}</b>${u.current ? " (dieser Agent)" : ""}
+        <div style="color:var(--dim);font-size:12px">${esc(u.state)}${u.since ? " · seit " + esc(u.since) : ""}</div></div></div>`).join("") +
+      `<button class="btn" id="usClose">Schließen</button>`);
+    $("usClose").onclick = closeSheet;
+    return;
+  }
+  if (c === "logoff" || c === "hibernate") {
+    const t = c === "logoff" ? "Benutzer abmelden" : "Ruhezustand";
+    openSheet(t + "?", `<p style="color:var(--dim)">${c === "logoff" ? "Nicht gespeicherte Arbeit am PC geht verloren." : "Der PC speichert alles und schaltet sich aus."}</p>
+      <button class="btn danger" id="pOk">${icon(c === "logoff" ? "user" : "moon")}${t}</button><button class="btn" id="pNo">Abbrechen</button>`);
+    $("pOk").onclick = () => { closeSheet(); post("/" + c, {}, t + " …") };
+    $("pNo").onclick = closeSheet;
     return;
   }
   if (c.startsWith("vol-")) return post("/volume", { action: c.slice(4) }, "OK");

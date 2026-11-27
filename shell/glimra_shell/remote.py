@@ -72,11 +72,24 @@ class RemoteServer:
     def _save_devices(self, devs: list[dict]) -> None:
         self.devices_file.parent.mkdir(parents=True, exist_ok=True)
         self.devices_file.write_text(json.dumps(devs, indent=2, ensure_ascii=False))
-        self.devices_file.chmod(0o600)
+        try:
+            self.devices_file.chmod(0o600)
+        except OSError:
+            pass
         self.on_change()
 
     def remove_device(self, name: str) -> None:
         self._save_devices([d for d in self.devices() if d.get("name") != name])
+
+    def info(self) -> dict:
+        """Für die eigene Oberfläche (z. B. Setup-Manager unter Windows)."""
+        return {"running": self.running, "port": self.http_port, "code": self.pair_code,
+                "devices": [{"name": d["name"], "since": d.get("since", "")} for d in self.devices()]}
+
+    def _extra(self, method: str, path: str, data: dict):
+        """Zusätzliche Befehle der Plattform (Windows-Agent): bridge.handle_extra → (Code, Daten) oder None."""
+        fn = getattr(self.bridge, "handle_extra", None)
+        return fn(method, path, data) if fn else None
 
     def _device_for(self, token: str) -> dict | None:
         h = _hash(token)
@@ -131,7 +144,8 @@ class RemoteServer:
                 break
             if data.strip() == b"GLIMRA?":
                 reply = {"glimra": 1, "type": "desktop", "name": socket.gethostname(),
-                         "user": self.bridge.display_name(), "port": self.http_port}
+                         "user": self.bridge.display_name(), "port": self.http_port,
+                         "platform": getattr(self.bridge, "platform", "glimra")}
                 try:
                     s.sendto(json.dumps(reply).encode(), addr)
                 except OSError:
@@ -195,9 +209,14 @@ class RemoteServer:
                         remaining -= len(chunk)
                 return length
 
+            def _local(self) -> bool:
+                return self.client_address[0] in ("127.0.0.1", "::1")
+
             def do_GET(self):
                 if self.path == "/hello":
                     return self._send(200, {"glimra": 1, "name": socket.gethostname()})
+                if self.path == "/local/info" and self._local():
+                    return self._send(200, remote.info())
                 if self.path == "/transfer-check":
                     if secrets.compare_digest(self.headers.get("X-Glimra-Code", ""), remote.transfer_code):
                         return self._send(200, {"ok": True, "name": socket.gethostname()})
@@ -209,7 +228,10 @@ class RemoteServer:
                     return self._send(200, remote.bridge.status())
                 if self.path == "/clipboard":
                     return self._send(200, {"text": remote.bridge.clipboard_get()})
-                self._send(404, {"error": "Unbekannt"})
+                res = remote._extra("GET", self.path, {})
+                if res:
+                    return self._send(*res)
+                self._send(404, {"error": "Auf diesem Gerät nicht verfügbar"})
 
             def do_POST(self):
                 # Umzug vom Windows-PC (Setup-Manager): eigener Code, keine Kopplung nötig
@@ -227,6 +249,13 @@ class RemoteServer:
                         return self._send(400, {"error": str(e)})
                     remote.on_transfer(str(target))
                     return self._send(200, {"ok": True})
+
+                if self.path in ("/local/newcode", "/local/remove") and self._local():
+                    if self.path == "/local/newcode":
+                        remote.new_pair_code()
+                    else:
+                        remote.remove_device(str(self._json().get("name", "")))
+                    return self._send(200, remote.info())
 
                 if self.path == "/pair":
                     data = self._json()
@@ -282,7 +311,8 @@ class RemoteServer:
                         return self._send(400, {"error": "Unbekannte Aktion"})
                     b.media(data["action"])
                 else:
-                    return self._send(404, {"error": "Unbekannt"})
+                    res = remote._extra("POST", self.path, data)
+                    return self._send(*res) if res else self._send(404, {"error": "Auf diesem Gerät nicht verfügbar"})
                 self._send(200, {"ok": True})
 
         return Handler

@@ -249,7 +249,14 @@ class MainActivity : Activity() {
                 val text = (if (code < 400) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
                 callback(id, code, text)
             } catch (e: Exception) {
-                callback(id, 0, JSONObject().put("error", "Nicht erreichbar").toString())
+                val why = when (e) {
+                    is java.net.ConnectException -> "Nicht erreichbar: Verbindung abgelehnt – ist die Fernsteuerung in Glimra OS an?"
+                    is SocketTimeoutException -> "Nicht erreichbar: keine Antwort – gleiches WLAN? IP richtig? Firewall?"
+                    is java.net.UnknownHostException -> "Nicht erreichbar: Adresse unbekannt – IP-Adresse prüfen"
+                    is java.net.NoRouteToHostException -> "Nicht erreichbar: kein Weg zum PC – gleiches WLAN?"
+                    else -> "Nicht erreichbar (" + e.javaClass.simpleName + ")"
+                }
+                callback(id, 0, JSONObject().put("error", why).toString())
             }
         } }
 
