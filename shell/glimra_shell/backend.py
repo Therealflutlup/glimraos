@@ -23,7 +23,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
-from . import CODENAME, __version__, devices, store, sysops
+from . import CODENAME, __version__, devices, installer, store, sysops
 from .assistant import Assistant
 from .remote import RemoteServer, HTTP_PORT
 
@@ -158,6 +158,38 @@ class Backend(QObject):
 
     version = Property(str, _version, constant=True)
     codename = Property(str, lambda self: CODENAME, constant=True)
+
+    # ------------------------------------------------------------ Installer (Live-System)
+    isLive = Property(bool, lambda self: installer.is_live(), constant=True)
+    edition = Property(str, lambda self: installer.edition(), constant=True)
+
+    @Slot(result="QVariantList")
+    def installerDisks(self):
+        return installer.list_disks()
+
+    @Slot(str, str, str, str, str, result=str)
+    def installerCheck(self, host: str, user: str, pw1: str, pw2: str, panel_pw: str) -> str:
+        return installer.validate(host, user, pw1, pw2, panel_pw, installer.edition())
+
+    @Slot()
+    def checkInternet(self) -> None:
+        self._async("net", lambda: (installer.has_internet(), ""))
+
+    @Slot(str, str, str, str, str)
+    def startInstall(self, disk: str, host: str, user: str, password: str, panel_pw: str) -> None:
+        err = installer.validate(host, user, password, password, panel_pw, installer.edition())
+        if err:
+            self.taskDone.emit("install", False, err)
+            return
+        log = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "glimra-install.log"
+
+        def work():
+            return installer.run_install(
+                disk, host, user, password, panel_pw,
+                on_step=lambda n, total, text: self.taskProgress.emit("install-step", f"{n}|{total}|{text}"),
+                on_log=lambda line: self.taskProgress.emit("install-log", line),
+                log_file=log)
+        self._async("install", work)
 
     @Slot(result=str)
     def hostname(self) -> str:

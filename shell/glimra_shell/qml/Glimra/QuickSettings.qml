@@ -9,6 +9,7 @@ Popup {
     property var st: null
     property string page: "main"   // main | wifi | bt
     property var wifiNets: []
+    property bool wifiSearching: false
     property var btDevs: []
     property string pwFor: ""
     signal openSettings(string section)
@@ -23,7 +24,7 @@ Popup {
         target: backend
         function onQuickStateReady(state) { qs.st = state }
         function onListReady(kind, items) {
-            if (kind === "wifi") qs.wifiNets = items
+            if (kind === "wifi") { qs.wifiNets = items; qs.wifiSearching = false }
             if (kind === "bt") qs.btDevs = items
         }
         function onTaskDone(kind, ok, text) { if (kind === "wifi" || kind === "bt") { backend.toast(text); if (ok) qs.page = "main"; backend.requestQuickState() } }
@@ -38,11 +39,12 @@ Popup {
             columns: 3; spacing: 8
             QuickToggle {
                 icon: "wifi"; label: "WLAN"
-                enabledTile: !!qs.st && qs.st.wifi.available
+                // bleibt anklickbar, damit man sieht, warum WLAN nicht geht
                 on: !!qs.st && qs.st.wifi.enabled
-                sub: qs.st && qs.st.wifi.connected ? qs.st.wifi.connected : (on ? "Nicht verbunden" : "Aus")
-                onToggled: backend.setWifi(!on)
-                onMore: { qs.page = "wifi"; qs.wifiNets = []; backend.requestWifiList() }
+                sub: !qs.st ? "" : !qs.st.wifi.available ? "nicht verfügbar"
+                    : qs.st.wifi.connected ? qs.st.wifi.connected : (on ? "Nicht verbunden" : "Aus")
+                onToggled: { if (qs.st && !qs.st.wifi.available) { qs.page = "wifi"; return } backend.setWifi(!on) }
+                onMore: { qs.page = "wifi"; qs.wifiNets = []; qs.wifiSearching = !!qs.st && qs.st.wifi.available; if (qs.wifiSearching) backend.requestWifiList() }
             }
             QuickToggle {
                 icon: "bluetooth"; label: "Bluetooth"
@@ -136,7 +138,20 @@ Popup {
             width: 420; spacing: 6
             Row { spacing: 8; IconButton { icon: "chevron"; rotation: 180; size: 32; iconSize: 15; onClicked: qs.page = "main" }
                   Text { text: "WLAN-Netze"; color: Theme.text; font.pixelSize: 16; font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter } }
-            Text { visible: qs.wifiNets.length === 0; text: "Suche …"; color: Theme.textDim; font.pixelSize: 13 }
+            Text {
+                visible: qs.wifiNets.length === 0
+                width: 420; wrapMode: Text.WordWrap
+                text: qs.st && qs.st.wifi.note ? qs.st.wifi.note
+                    : qs.wifiSearching ? "Suche …"
+                    : qs.st && !qs.st.wifi.enabled ? "WLAN ist aus. Schalte es in den Schnelleinstellungen ein."
+                    : "Keine WLAN-Netze gefunden."
+                color: qs.st && qs.st.wifi.note ? Theme.danger : Theme.textDim; font.pixelSize: 13
+            }
+            GlimraButton {
+                visible: qs.wifiNets.length === 0 && !qs.wifiSearching
+                icon: "refresh"; text: "Erneut suchen"
+                onClicked: { backend.setWifi(true); qs.wifiSearching = true; backend.requestWifiList(); backend.requestQuickState() }
+            }
             Repeater {
                 model: qs.wifiNets
                 delegate: Column {

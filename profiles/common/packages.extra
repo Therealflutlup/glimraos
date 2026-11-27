@@ -3,6 +3,8 @@ python
 btrfs-progs
 snapper
 networkmanager
+wpa_supplicant
+polkit
 sudo
 nano
 git

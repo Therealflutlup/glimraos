@@ -13,7 +13,9 @@ Item {
     property bool locked: false
 
     // ---------------- Apps (eigene Symbole aus icons/)
-    readonly property var apps: [
+    readonly property var apps: allApps.filter(a => !a.liveOnly || backend.isLive)
+    readonly property var allApps: [
+        { id: "installer", name: "Vollversion installieren", icon: "drive", colors: ["#5b8cff", "#a06bff"], internal: true, size: [800, 620], liveOnly: true },
         { id: "settings",  name: "Einstellungen", icon: "settings",  colors: ["#5b8cff", "#3a5bd9"], internal: true, size: [860, 640] },
         { id: "assistant", name: "Assistent",     icon: "assistant", colors: ["#a06bff", "#6b3cff"], internal: true, size: [560, 600] },
         { id: "remote",    name: "GlimraApp",      icon: "phone",     colors: ["#2ed3a1", "#159c78"], internal: true, size: [640, 560] },
@@ -54,7 +56,7 @@ Item {
         const comps = { settings: settingsComp, tools: toolsComp, taskman: taskComp, wallpaper: wallComp,
                         assistant: assistantComp, remote: remoteComp, security: securityComp, backup: backupComp,
                         vm: vmComp, transfer: transferComp, help: helpComp, calc: calcComp,
-                        store: storeComp, update: updateComp }
+                        store: storeComp, update: updateComp, installer: installerComp }
         const lw = windowLayer.width > 400 ? windowLayer.width : 1280
         const lh = windowLayer.height > 300 ? windowLayer.height : 744
         const s = [Math.min(app.size[0], lw - 20), Math.min(app.size[1], lh - 20)]
@@ -170,6 +172,7 @@ Item {
     Component { id: settingsComp; SettingsApp { section: shell.settingsSection; onOpenApp: (id) => shell.openApp(id) } }
     Component { id: storeComp; StoreApp {} }
     Component { id: updateComp; UpdateApp {} }
+    Component { id: installerComp; InstallerApp { onOpenWifi: { icLoader.active = false; qsLoader.active = true } } }
     Component { id: toolsComp; ToolsApp {} }
     Component { id: taskComp; TaskManagerApp {} }
     Component { id: wallComp; WallpaperApp {} }
@@ -221,6 +224,41 @@ Item {
                 contextMenu.x = Math.min(mouse.x, shell.width - contextMenu.width - 8)
                 contextMenu.y = Math.min(mouse.y, shell.height - contextMenu.height - 60)
                 contextMenu.open()
+            }
+        }
+    }
+
+    // ---------------- Hinweis im Live-System: Vollversion installieren
+    Rectangle {
+        id: liveBanner
+        visible: backend.isLive && !liveBannerHidden
+        property bool liveBannerHidden: false
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: 16
+        height: 52
+        width: liveRow.implicitWidth + 28
+        radius: 26
+        color: Theme.panel
+        border.color: Theme.accent
+        Row {
+            id: liveRow
+            anchors.centerIn: parent
+            spacing: 12
+            Icon { name: "plug"; size: 20; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Testversion vom USB-Stick"
+                color: Theme.text; font.pixelSize: 14; font.family: Theme.fontFamily
+            }
+            GlimraButton {
+                anchors.verticalCenter: parent.verticalCenter
+                primary: true; icon: "download"; text: "Vollversion installieren"
+                onClicked: shell.openApp("installer")
+            }
+            IconButton {
+                anchors.verticalCenter: parent.verticalCenter
+                icon: "close"
+                onClicked: liveBanner.liveBannerHidden = true
             }
         }
     }
@@ -515,7 +553,7 @@ Item {
         anchors.fill: parent
         z: 200000
         active: !backend.settings.setupDone
-        sourceComponent: SetupWizard {}
+        sourceComponent: SetupWizard { onInstallRequested: Qt.callLater(shell.openApp, "installer") }
     }
 
     // Für Tests/Screenshots: --app quick | info | clip | start:SUCHE | snap | APP-ID

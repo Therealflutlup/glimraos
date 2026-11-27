@@ -27,11 +27,16 @@ Am einfachsten mit `GlimraSetup.exe` → „USB-Stick erstellen“. Oder von Han
 
 ## 4. Installieren
 
-1. Vom Stick starten – Glimra OS läuft zuerst als Live-System.
-2. Terminal öffnen (Taskleiste) und eingeben: `sudo glimra-install` (im Live-System reicht `glimra-install`).
-3. Festplatte, Rechnername, Benutzername und Passwort angeben, mit `JA` bestätigen.
-   **Die gewählte Festplatte wird komplett gelöscht.**
-4. Nach „Glimra OS ist installiert“ den Stick abziehen und `reboot` eingeben.
+1. Vom Stick starten – Glimra OS läuft zuerst als Testversion (Live-System). Alles, was du dort änderst,
+   ist nach einem Neustart wieder weg.
+2. Oben auf dem Desktop auf **„Vollversion installieren“** klicken (auch im Startmenü zu finden).
+3. Internet verbinden (LAN-Kabel oder „WLAN wählen“), dann das **Laufwerk auswählen**.
+   **Das gewählte Laufwerk wird komplett gelöscht.** Der USB-Stick selbst wird nicht angeboten.
+4. Benutzername, PC-Name und Passwort eingeben, das Löschen bestätigen und „Jetzt installieren“ klicken.
+   Glimra OS wird aus dem Internet geladen und fest installiert (ca. 10–30 Minuten).
+5. „Jetzt neu starten“ klicken und den Stick abziehen, sobald der Bildschirm schwarz wird.
+
+Für Profis geht es auch im Terminal: `glimra-install` fragt alles Schritt für Schritt ab.
 
 ## 5. Erste Schritte (Desktop)
 

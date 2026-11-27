@@ -5,6 +5,7 @@ Rectangle {
     id: wiz
     color: Theme.bg
     property int page: 0
+    signal installRequested()
     property string choice: ""
 
     Wallpaper { anchors.fill: parent; key: "aurora"; opacity: 0.8 }
@@ -130,7 +131,9 @@ Rectangle {
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Rechtsklick auf den Desktop öffnet das Menü,\nder Glimra-Knopf unten links alle Apps."
+                text: backend.isLive
+                    ? "Du testest Glimra OS gerade vom USB-Stick.\nMit „Vollversion installieren“ kommt es fest auf deinen PC."
+                    : "Rechtsklick auf den Desktop öffnet das Menü,\nder Glimra-Knopf unten links alle Apps."
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.textDim; font.pixelSize: 15; font.family: Theme.fontFamily
             }
@@ -147,8 +150,18 @@ Rectangle {
                 onClicked: wiz.page--
             }
             GlimraButton {
+                visible: wiz.page === 3 && backend.isLive
+                icon: "download"
+                text: "Vollversion installieren"
+                onClicked: {
+                    wiz.installRequested()
+                    wiz.page = 0
+                    backend.setSetting("setupDone", true)
+                }
+            }
+            GlimraButton {
                 primary: true
-                text: wiz.page === 3 ? "Los geht's" : (wiz.page === 2 && !wiz.choice ? "Überspringen" : "Weiter")
+                text: wiz.page === 3 ? (backend.isLive ? "Erst testen" : "Los geht's") : (wiz.page === 2 && !wiz.choice ? "Überspringen" : "Weiter")
                 onClicked: {
                     if (wiz.page === 1) {
                         backend.setSetting("name", nameField.text.trim())

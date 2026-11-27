@@ -80,22 +80,63 @@ def set_brightness(level: int) -> None:
 
 
 # ------------------------------------------------------------------ WLAN
-def wifi_state() -> dict:
+def nm_running() -> bool:
+    """Läuft der Netzwerkdienst (NetworkManager)? Ohne ihn geht kein WLAN."""
     if not has("nmcli"):
-        return {"available": False, "enabled": False, "connected": ""}
-    enabled = _run(["nmcli", "radio", "wifi"]).stdout.strip() == "enabled"
-    conn = ""
+        return False
+    return _run(["nmcli", "-t", "-f", "RUNNING", "general"]).stdout.strip() == "running"
+
+
+def rfkill_state() -> dict:
+    """{'wlan': {'soft': bool, 'hard': bool}, 'bluetooth': {...}} – Funk per Software/Schalter gesperrt."""
+    state: dict = {}
+    if not has("rfkill"):
+        return state
+    for line in _run(["rfkill", "-rn", "-o", "TYPE,SOFT,HARD"]).stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        t = state.setdefault(parts[0], {"soft": True, "hard": False, "count": 0})
+        t["soft"] = t["soft"] and parts[1] == "blocked"      # alle Geräte dieses Typs gesperrt?
+        t["hard"] = t["hard"] or parts[2] == "blocked"
+        t["count"] += 1
+    return state
+
+
+def _wifi_devices() -> list[str]:
+    out = _run(["nmcli", "-t", "-f", "DEVICE,TYPE", "device"]).stdout
+    return [line.split(":")[0] for line in out.splitlines() if line.endswith(":wifi")]
+
+
+def wifi_state() -> dict:
+    """{'available', 'enabled', 'connected', 'note'} – note erklärt, warum WLAN nicht geht."""
+    st = {"available": False, "enabled": False, "connected": "", "note": ""}
+    if not has("nmcli"):
+        st["note"] = "NetworkManager ist nicht installiert."
+        return st
+    if not nm_running():
+        st["note"] = "Der Netzwerkdienst läuft nicht."
+        return st
+    if not _wifi_devices():
+        st["note"] = "Kein WLAN-Adapter gefunden (Treiber fehlt oder kein WLAN eingebaut)."
+        return st
+    rf = rfkill_state().get("wlan", {})
+    st["available"] = True
+    st["enabled"] = _run(["nmcli", "radio", "wifi"]).stdout.strip() == "enabled" and not rf.get("soft", False)
+    if rf.get("hard"):
+        st["enabled"] = False
+        st["note"] = "WLAN ist am Gerät ausgeschaltet (Schalter oder Fn-Taste)."
     for line in _run(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]).stdout.splitlines():
         if line.startswith("yes:"):
-            conn = line[4:].replace("\\:", ":")
+            st["connected"] = line[4:].replace("\\:", ":")
             break
-    return {"available": True, "enabled": enabled, "connected": conn}
+    return st
 
 
 def wifi_list() -> list[dict]:
     if not has("nmcli"):
         return []
-    out = _run(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "auto"], 15).stdout
+    out = _run(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes"], 20).stdout
     nets, seen = [], set()
     for line in out.splitlines():
         parts = re.split(r"(?<!\\):", line)
@@ -108,18 +149,26 @@ def wifi_list() -> list[dict]:
 
 
 def set_wifi(on: bool) -> None:
+    if on and has("rfkill"):
+        _run(["rfkill", "unblock", "wlan"])   # manche PCs starten mit gesperrtem WLAN
     _run(["nmcli", "radio", "wifi", "on" if on else "off"])
 
 
 def wifi_connect(ssid: str, password: str) -> tuple[bool, str]:
+    if not nm_running():
+        return False, "Der Netzwerkdienst läuft nicht."
+    set_wifi(True)
     cmd = ["nmcli", "dev", "wifi", "connect", ssid]
     if password:
         cmd += ["password", password]
     res = _run(cmd, 45)
     if res.returncode == 0:
         return True, f"Verbunden mit {ssid}."
-    if "Secrets were required" in res.stderr or "password" in res.stderr.lower():
+    err = (res.stderr + res.stdout).lower()
+    if "secrets were required" in err or "password" in err or "802-11-wireless-security" in err:
         return False, "Falsches WLAN-Passwort."
+    if "no network with ssid" in err:
+        return False, f"{ssid} ist nicht mehr in Reichweite."
     return False, f"Verbindung mit {ssid} fehlgeschlagen."
 
 
@@ -167,13 +216,27 @@ def bt_disconnect(mac: str) -> None:
 
 # ------------------------------------------------------------------ Flugmodus, Akku, Energie
 def airplane() -> bool:
+    """Flugmodus = alle Funkgeräte (WLAN und Bluetooth) per Software gesperrt."""
+    rf = rfkill_state()
+    radios = [v for k, v in rf.items() if k in ("wlan", "bluetooth", "wwan")]
+    if radios:
+        return all(r["soft"] or r["hard"] for r in radios)
     if not has("nmcli"):
         return False
-    return _run(["nmcli", "radio", "all"]).stdout.split()[-2:] == ["disabled", "disabled"]
+    # Ausgabe: "WIFI-HW  WIFI  WWAN-HW  WWAN" / "enabled  disabled  missing  disabled"
+    lines = _run(["nmcli", "radio", "all"]).stdout.split("\n")
+    if len(lines) >= 2:
+        head, vals = lines[0].split(), lines[1].split()
+        if "WIFI" in head and len(vals) == len(head):
+            return vals[head.index("WIFI")] == "disabled"
+    return False
 
 
 def set_airplane(on: bool) -> None:
-    _run(["nmcli", "radio", "all", "off" if on else "on"])
+    if has("rfkill"):
+        _run(["rfkill", "block" if on else "unblock", "all"])
+    if has("nmcli"):
+        _run(["nmcli", "radio", "all", "off" if on else "on"])
     if has("bluetoothctl"):
         set_bt(not on)
 

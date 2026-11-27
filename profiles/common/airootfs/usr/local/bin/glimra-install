@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # Glimra-OS-Installer: installiert Glimra OS (Desktop oder Server) auf eine Festplatte.
 # ACHTUNG: Die gewählte Festplatte wird komplett gelöscht.
+#
+#   glimra-install          fragt alles im Terminal ab
+#   glimra-install --auto   für den grafischen Installer der Glimra Shell: liest fünf Zeilen
+#                           von stdin (Festplatte, Rechnername, Benutzer, Passwort, Panel-Passwort)
+#                           und meldet den Fortschritt als "@@STEP n 6 Text", "@@ERROR Text", "@@DONE"
 set -euo pipefail
+
+AUTO=0
+[[ ${1:-} == --auto ]] && AUTO=1
 
 B='\e[1;38;2;91;140;255m'; R='\e[1;31m'; N='\e[0m'
 EDITION=$(cat /etc/glimra/edition 2>/dev/null || echo desktop)
@@ -23,56 +31,82 @@ GLIMRA_FILES=(
 [[ $EDITION == desktop ]] && GLIMRA_FILES+=(/usr/lib/firefox/distribution/policies.json)
 [[ $EDITION == server ]] && GLIMRA_FILES+=(/etc/systemd/system/glimra-panel.service /etc/samba/smb.conf)
 
-die() { echo -e "${R}Fehler:${N} $*" >&2; exit 1; }
+if (( AUTO )); then B=''; R=''; N=''; fi
+die() {
+    if (( AUTO )); then echo "@@ERROR $*"; else echo -e "${R}Fehler:${N} $*" >&2; fi
+    exit 1
+}
+step() {
+    if (( AUTO )); then echo "@@STEP $1 6 $2"; else echo -e "${B}[$1/6] $2 …${N}"; fi
+}
+(( AUTO )) && trap 'echo "@@ERROR Schritt fehlgeschlagen (Zeile $LINENO). Details im Protokoll."' ERR
 
 [[ $EUID -eq 0 ]] || die "Bitte als root starten."
 [[ -d /sys/firmware/efi ]] || die "Glimra OS braucht einen UEFI-Rechner (in einer VM: EFI/UEFI einschalten)."
-ping -c1 -W3 archlinux.org >/dev/null 2>&1 || die "Keine Internetverbindung. Die Installation lädt Pakete herunter."
+curl -fsI --max-time 8 https://archlinux.org >/dev/null 2>&1 || ping -c1 -W3 archlinux.org >/dev/null 2>&1 || die "Keine Internetverbindung. Die Installation lädt Pakete herunter."
 
-clear
-echo -e "${B}  Glimra OS installieren (${EDITION})${N}\n"
-echo "  Gefundene Festplatten:"
-lsblk -dpno NAME,SIZE,MODEL | grep -Ev 'loop|sr[0-9]|zram' | sed 's/^/    /'
-echo
-read -rp "  Auf welche Festplatte installieren? (z. B. /dev/sda): " DISK
-[[ -b $DISK ]] || die "$DISK ist keine Festplatte."
-[[ $(lsblk -no TYPE "$DISK" | head -1) == disk ]] || die "Bitte die ganze Festplatte angeben, keine Partition."
+if (( AUTO )); then
+    IFS= read -r DISK; IFS= read -r HOST; IFS= read -r USERNAME; IFS= read -r PASS1; IFS= read -r PANELPW || true
+    [[ -b $DISK ]] || die "$DISK ist keine Festplatte."
+    [[ $(lsblk -no TYPE "$DISK" | head -1) == disk ]] || die "Bitte eine ganze Festplatte wählen."
+    HOST=${HOST:-glimra-$EDITION}
+    [[ $HOST =~ ^[a-zA-Z0-9-]{1,63}$ ]] || die "Ungültiger Rechnername."
+    [[ $USERNAME =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "Ungültiger Benutzername."
+    [[ -n $PASS1 ]] || die "Das Passwort ist leer."
+    [[ $EDITION != server || ${#PANELPW} -ge 8 ]] || die "Das Panel-Passwort braucht mindestens 8 Zeichen."
+else
+    clear
+    echo -e "${B}  Glimra OS installieren (${EDITION})${N}\n"
+    echo "  Gefundene Festplatten:"
+    lsblk -dpno NAME,SIZE,MODEL | grep -Ev 'loop|sr[0-9]|zram' | sed 's/^/    /'
+    echo
+    read -rp "  Auf welche Festplatte installieren? (z. B. /dev/sda): " DISK
+    [[ -b $DISK ]] || die "$DISK ist keine Festplatte."
+    [[ $(lsblk -no TYPE "$DISK" | head -1) == disk ]] || die "Bitte die ganze Festplatte angeben, keine Partition."
 
-read -rp "  Rechnername [glimra-$EDITION]: " HOST
-HOST=${HOST:-glimra-$EDITION}
-[[ $HOST =~ ^[a-zA-Z0-9-]{1,63}$ ]] || die "Ungültiger Rechnername."
+    read -rp "  Rechnername [glimra-$EDITION]: " HOST
+    HOST=${HOST:-glimra-$EDITION}
+    [[ $HOST =~ ^[a-zA-Z0-9-]{1,63}$ ]] || die "Ungültiger Rechnername."
 
-read -rp "  Benutzername (klein, z. B. leon): " USERNAME
-[[ $USERNAME =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "Ungültiger Benutzername."
-while true; do
-    read -rsp "  Passwort: " PASS1; echo
-    read -rsp "  Passwort wiederholen: " PASS2; echo
-    [[ $PASS1 == "$PASS2" && -n $PASS1 ]] && break
-    echo "  Passwörter stimmen nicht überein oder sind leer."
-done
-if [[ $EDITION == server ]]; then
+    read -rp "  Benutzername (klein, z. B. leon): " USERNAME
+    [[ $USERNAME =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "Ungültiger Benutzername."
     while true; do
-        read -rsp "  Passwort für das Glimra Panel (mind. 8 Zeichen): " PANELPW; echo
-        (( ${#PANELPW} >= 8 )) && break
+        read -rsp "  Passwort: " PASS1; echo
+        read -rsp "  Passwort wiederholen: " PASS2; echo
+        [[ $PASS1 == "$PASS2" && -n $PASS1 ]] && break
+        echo "  Passwörter stimmen nicht überein oder sind leer."
     done
+    if [[ $EDITION == server ]]; then
+        while true; do
+            read -rsp "  Passwort für das Glimra Panel (mind. 8 Zeichen): " PANELPW; echo
+            (( ${#PANELPW} >= 8 )) && break
+        done
+    fi
+
+    echo
+    echo -e "  ${R}ALLE DATEN AUF $DISK WERDEN GELÖSCHT!${N}"
+    read -rp "  Zum Bestätigen JA (groß) eintippen: " OK
+    [[ $OK == JA ]] || die "Abgebrochen – es wurde nichts verändert."
 fi
 
-echo
-echo -e "  ${R}ALLE DATEN AUF $DISK WERDEN GELÖSCHT!${N}"
-read -rp "  Zum Bestätigen JA (groß) eintippen: " OK
-[[ $OK == JA ]] || die "Abgebrochen – es wurde nichts verändert."
+# niemals auf den USB-Stick installieren, von dem gerade gestartet wurde
+BOOTSRC=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null || true)
+if [[ -n $BOOTSRC ]]; then
+    BOOTDISK=/dev/$(lsblk -no PKNAME "$BOOTSRC" 2>/dev/null | head -1)
+    [[ $BOOTDISK != "$DISK" ]] || die "$DISK ist der Glimra-USB-Stick, von dem gerade gestartet wurde. Bitte eine andere Festplatte wählen."
+fi
 
-echo -e "\n${B}[1/6] Festplatte vorbereiten …${N}"
+step 1 "Festplatte vorbereiten"
 umount -R /mnt 2>/dev/null || true
 wipefs -af "$DISK"
 sgdisk --zap-all "$DISK"
-sgdisk -n1:0:+1G -t1:ef00 -c1:EFI -n2:0:0 -t2:8300 -c2:Glimra OS "$DISK"
+sgdisk -n1:0:+1G -t1:ef00 -c1:EFI -n2:0:0 -t2:8300 -c2:GlimraOS "$DISK"
 partprobe "$DISK"; sleep 2
 if [[ $DISK =~ (nvme|mmcblk|loop) ]]; then P1=${DISK}p1; P2=${DISK}p2; else P1=${DISK}1; P2=${DISK}2; fi
 mkfs.fat -F32 -n EFI "$P1"
-mkfs.btrfs -f -L Glimra OS "$P2"
+mkfs.btrfs -f -L GlimraOS "$P2"
 
-echo -e "${B}[2/6] Btrfs-Bereiche für Snapshots anlegen …${N}"
+step 2 "Btrfs-Bereiche für Snapshots anlegen"
 mount "$P2" /mnt
 for sv in @ @home @snapshots @log; do btrfs subvolume create "/mnt/$sv"; done
 umount /mnt
@@ -85,7 +119,7 @@ mount -o "$OPTS,subvol=@log" "$P2" /mnt/var/log
 # EFI-Partition unter /efi – Kernel bleiben in /boot im Btrfs und werden mit gesichert
 mount "$P1" /mnt/efi
 
-echo -e "${B}[3/6] Pakete installieren (das dauert ein paar Minuten) …${N}"
+step 3 "Pakete installieren (das dauert ein paar Minuten)"
 sed -i '/^#\[multilib\]/{N;s/#//g}' /etc/pacman.conf
 mapfile -t EXTRA < /etc/glimra/packages.list
 pacstrap -K /mnt base linux linux-firmware intel-ucode amd-ucode grub efibootmgr grub-btrfs inotify-tools \
@@ -93,7 +127,7 @@ pacstrap -K /mnt base linux linux-firmware intel-ucode amd-ucode grub efibootmgr
 cp /etc/pacman.conf /mnt/etc/pacman.conf
 genfstab -U /mnt >> /mnt/etc/fstab
 
-echo -e "${B}[4/6] Glimra-OS-Dateien übernehmen …${N}"
+step 4 "Glimra-OS-Dateien übernehmen"
 for f in "${GLIMRA_FILES[@]}"; do
     [[ -e $f ]] || continue
     mkdir -p "/mnt$(dirname "$f")"
@@ -102,7 +136,7 @@ done
 rm -f /mnt/etc/os-release && cp /etc/os-release /mnt/etc/os-release
 chmod 440 /mnt/etc/sudoers.d/20-glimra
 
-echo -e "${B}[5/6] System einrichten …${N}"
+step 5 "System einrichten"
 arch-chroot /mnt /bin/bash -e <<CHROOT
 ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
 hwclock --systohc
@@ -134,7 +168,7 @@ echo "installiert am \$(date '+%d.%m.%Y')" > /etc/glimra/installed
 CHROOT
 printf '%s:%s\n' "$USERNAME" "$PASS1" | arch-chroot /mnt chpasswd
 
-echo -e "${B}[6/6] Edition einrichten: $EDITION …${N}"
+step 6 "Edition einrichten: $EDITION"
 if [[ $EDITION == desktop ]]; then
     # automatisch anmelden und die Glimra Shell starten
     mkdir -p /mnt/etc/systemd/system/getty@tty1.service.d
@@ -151,6 +185,10 @@ else
 fi
 
 umount -R /mnt
-echo
-echo -e "${B}  ✓ Glimra OS ist installiert!${N}"
-echo "  Entferne den USB-Stick / die ISO und starte neu:  reboot"
+if (( AUTO )); then
+    echo "@@DONE"
+else
+    echo
+    echo -e "${B}  ✓ Glimra OS ist installiert!${N}"
+    echo "  Entferne den USB-Stick / die ISO und starte neu:  reboot"
+fi

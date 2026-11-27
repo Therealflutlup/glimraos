@@ -35,3 +35,4 @@ ClipboardPopup 1.0 ClipboardPopup.qml
 WindowSwitcher 1.0 WindowSwitcher.qml
 StoreApp 1.0 StoreApp.qml
 UpdateApp 1.0 UpdateApp.qml
+InstallerApp 1.0 InstallerApp.qml

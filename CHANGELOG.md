@@ -2,6 +2,29 @@
 
 Alle wichtigen Änderungen an Glimra OS. Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.1.0] – 2026-11-27 „Funke“
+
+### Neu
+- **Vollversion installieren:** Wer Glimra OS vom USB-Stick startet, sieht oben den Hinweis
+  „Testversion vom USB-Stick“ mit dem Knopf „Vollversion installieren“. Ein grafischer Assistent prüft das Internet
+  (mit WLAN-Auswahl), zeigt alle Laufwerke zum Auswählen, fragt Benutzer, PC-Name und Passwort ab und installiert
+  Glimra OS mit Fortschrittsanzeige fest auf die Festplatte. Danach reicht ein Klick auf „Jetzt neu starten“.
+- Die Einrichtung beim ersten Start bietet im Live-System direkt „Vollversion installieren“ an.
+- `glimra-install --auto` für den grafischen Installer; der Stick, von dem gestartet wurde, wird nie als Ziel angeboten.
+
+### Behoben
+- **WLAN und Flugmodus im Live-System (USB-Stick):** Das Live-System startete iwd/systemd-networkd, die Glimra Shell
+  steuert aber NetworkManager – WLAN-Liste blieb leer, Schalter ohne Wirkung. Jetzt läuft auch auf dem Stick
+  NetworkManager (plus Bluetooth).
+- Flugmodus sperrt jetzt alle Funkgeräte über rfkill (WLAN und Bluetooth) und erkennt seinen Zustand richtig
+  (vorher wurde die falsche Spalte von `nmcli radio all` gelesen).
+- WLAN wird beim Einschalten auch per rfkill entsperrt (manche PCs starten mit gesperrtem WLAN).
+- Schnelleinstellungen erklären, warum WLAN nicht geht: Netzwerkdienst aus, kein WLAN-Adapter oder
+  WLAN per Schalter/Fn-Taste aus. „Erneut suchen“, wenn keine Netze gefunden wurden.
+- Installer: Die Partition hieß nach der Umbenennung „Glimra OS“ ohne Anführungszeichen – `mkfs.btrfs` und `sgdisk`
+  wären daran gescheitert. Jetzt heißt sie „GlimraOS“.
+- Installer prüft das Internet zusätzlich per HTTPS (manche Netze blockieren ping).
+
 ## [1.0.0] – 2026-11-27 „Funke“
 
 Erste öffentliche Version.

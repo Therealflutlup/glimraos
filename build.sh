@@ -68,6 +68,22 @@ sed -i "/^file_permissions=(/a\\
 $(printf '%b' "$PERMS" | sed 's/$/\\/' | sed '$ s/\\$//')" "$P/profiledef.sh"
 
 # 5. Dienste im Live-System
+# Das releng-Profil nutzt iwd + systemd-networkd. Die Glimra Shell steuert WLAN, Flugmodus und
+# Verbindungen über NetworkManager – also wie im installierten System NetworkManager starten.
+W="$P/airootfs/etc/systemd/system"
+rm -f "$W/multi-user.target.wants/iwd.service" \
+      "$W/multi-user.target.wants/systemd-networkd.service" \
+      "$W/sockets.target.wants/systemd-networkd.socket" \
+      "$W/network-online.target.wants/systemd-networkd-wait-online.service" \
+      "$W/systemd-networkd-wait-online.service.d/"*.conf 2>/dev/null || true
+mkdir -p "$W/multi-user.target.wants" "$W/network-online.target.wants"
+ln -sf /usr/lib/systemd/system/NetworkManager.service "$W/multi-user.target.wants/NetworkManager.service"
+ln -sf /usr/lib/systemd/system/NetworkManager-wait-online.service \
+    "$W/network-online.target.wants/NetworkManager-wait-online.service"
+ln -sf /usr/lib/systemd/system/NetworkManager-dispatcher.service "$W/dbus-org.freedesktop.nm-dispatcher.service"
+if [[ $EDITION == desktop ]]; then
+    ln -sf /usr/lib/systemd/system/bluetooth.service "$W/multi-user.target.wants/bluetooth.service"
+fi
 if [[ $EDITION == server ]]; then
     mkdir -p "$P/airootfs/etc/systemd/system/multi-user.target.wants"
     ln -sf /etc/systemd/system/glimra-panel.service \
