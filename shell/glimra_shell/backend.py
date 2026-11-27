@@ -20,7 +20,7 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QObject, Property, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
 from . import CODENAME, __version__, devices, installer, store, sysops
@@ -46,6 +46,20 @@ DEFAULT_SETTINGS = {
 }
 SETTINGS_EXPORT_KEYS = ("name", "email", "profile", "wallpaper", "accent")
 
+# Was die GlimraApp / der Windows-Setup-Manager an Glimra OS zusätzlich auslösen darf
+REMOTE_FEATURES = ["lock", "clipboard", "notify", "open", "power", "volume", "media", "upload",
+                   "screen", "processes", "kill", "message", "launch", "users"]
+REMOTE_LAUNCH = {"files": ("Dateien", "pcmanfm-qt"), "browser": ("Browser", "firefox"),
+                 "terminal": ("Terminal", "foot"), "editor": ("Texteditor", "mousepad")}
+REMOTE_PROTECTED = {"systemd", "kthreadd", "dbus-daemon", "dbus-broker", "NetworkManager", "pipewire",
+                    "wireplumber", "systemd-logind", "agetty", "login"}
+
+
+def getpass_user() -> str:
+    import getpass
+    return getpass.getuser()
+
+
 # Die Paketlisten der Nutzungsprofile stehen in /usr/local/bin/glimra-profile.
 PROFILES = ("gaming", "leistung", "arbeit", "apps", "vm", "assistent")
 PROFILE_TOOL = "/usr/local/bin/glimra-profile"
@@ -67,6 +81,7 @@ class Backend(QObject):
     shortcut = Signal(str)
     indexReady = Signal()
     _clipboardSet = Signal(str)
+    _grabRequested = Signal()
 
     def __init__(self, glimra_mode: bool, wayland_socket: str = "wayland-glimra"):
         super().__init__()
@@ -81,6 +96,9 @@ class Backend(QObject):
         self._index_time = 0.0
         self._index_busy = False
         self._clipboardSet.connect(self._apply_clipboard)
+        self._grab_png = b""
+        self._grab_done = threading.Event()
+        self._grabRequested.connect(self._grab_for_remote)
         cb = QGuiApplication.clipboard()
         cb.dataChanged.connect(self._clip_changed)
         self._assistant = Assistant(lambda: {"ip": self._main_ip()})
@@ -448,7 +466,84 @@ class Backend(QObject):
                 pass
         return {"hostname": info["hostname"], "user": self.display_name(), "os": info["os"],
                 "ram": f'{info["ramUsed"]} / {info["ramTotal"]}' if info["ramUsed"] else "–",
-                "uptime": info["uptime"] or "–", "battery": bat or "–", "ip": self._main_ip()}
+                "uptime": info["uptime"] or "–", "battery": bat or "–", "ip": self._main_ip(),
+                "platform": "glimra", "features": REMOTE_FEATURES, "users": self._sessions(),
+                "launch": [{"id": k, "name": v[0]} for k, v in REMOTE_LAUNCH.items()]}
+
+    # ---- Zusatzbefehle für GlimraApp und den Windows-Setup-Manager („PCs steuern“)
+    @staticmethod
+    def _sessions() -> list[dict]:
+        users = []
+        if IS_LINUX and shutil.which("loginctl"):
+            out = subprocess.run(["loginctl", "list-sessions", "--no-legend"], capture_output=True,
+                                 text=True, timeout=3).stdout
+            for line in out.splitlines():
+                parts = line.split()
+                if len(parts) >= 3 and parts[2] not in [u["user"] for u in users]:
+                    users.append({"user": parts[2], "session": parts[0], "state": "aktiv", "since": "",
+                                  "current": parts[2] == getpass_user()})
+        return users or [{"user": getpass_user(), "session": "", "state": "aktiv", "since": "", "current": True}]
+
+    def _grab_for_remote(self) -> None:
+        """Läuft im GUI-Thread: Bildschirm als verkleinertes PNG."""
+        data = b""
+        if self._window is not None:
+            img = self._window.grabWindow()
+            if img.width() > 1000:
+                img = img.scaledToWidth(1000)
+            ba = QByteArray()
+            buf = QBuffer(ba)
+            buf.open(QIODevice.WriteOnly)
+            img.save(buf, "PNG")
+            data = bytes(ba.data())
+        self._grab_png = data
+        self._grab_done.set()
+
+    def handle_extra(self, method: str, path: str, data: dict):
+        import base64
+        if method == "GET":
+            if path == "/processes":
+                own = os.getpid()
+                procs = [{"name": p["name"], "pid": p["pid"], "session": "", "mem": p["mem"] * 1024 * 1024,
+                          "memText": f'{p["mem"]} MB', "protected": p["pid"] in (1, own) or p["name"] in REMOTE_PROTECTED}
+                         for p in self.processes()]
+                return 200, {"processes": procs[:60]}
+            if path == "/users":
+                return 200, {"domain": "", "users": self._sessions()}
+            if path == "/screen":
+                self._grab_done.clear()
+                self._grabRequested.emit()
+                if not self._grab_done.wait(6) or not self._grab_png:
+                    return 503, {"error": "Bildschirm gerade nicht verfügbar"}
+                return 200, {"png": base64.b64encode(self._grab_png).decode("ascii")}
+            return None
+        if path == "/kill":
+            try:
+                pid = int(data.get("pid", 0))
+            except (TypeError, ValueError):
+                return 400, {"error": "Ungültige Prozess-Nummer"}
+            if pid in (0, 1, os.getpid()):
+                return 403, {"error": "Dieser Prozess wird nicht beendet"}
+            try:
+                os.kill(pid, 15)
+            except ProcessLookupError:
+                return 404, {"error": "Programm läuft nicht mehr"}
+            except PermissionError:
+                return 403, {"error": "Gehört zum System und wird nicht beendet"}
+            return 200, {"ok": True}
+        if path == "/message":
+            text = str(data.get("text", ""))[:500]
+            if not text:
+                return 400, {"error": "Kein Text"}
+            self.message.emit("Nachricht: " + text)
+            return 200, {"ok": True}
+        if path == "/launch":
+            app = REMOTE_LAUNCH.get(str(data.get("app", "")))
+            if not app:
+                return 400, {"error": "Unbekanntes Programm"}
+            self.launch(app[1])
+            return 200, {"ok": True}
+        return None
 
     def lock(self) -> None:
         self.lockRequested.emit()

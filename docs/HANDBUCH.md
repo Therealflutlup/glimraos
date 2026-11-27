@@ -107,6 +107,13 @@ Zusätzlich zu Sperren, Zwischenablage, Dateien, Ton, Medien und Ausschalten kan
 anzeigen, **angemeldete Benutzer und Domäne** sehen, **Benutzer abmelden** und **Ruhezustand**.
 Ist der PC in einer Domäne (z. B. `heim.lan`), zeigt die App die Domäne und alle angemeldeten Benutzer an.
 
+### Glimra-OS-PC vom Windows-PC aus steuern
+
+`GlimraSetup.exe` → **PCs steuern**. Der Setup-Manager sucht Glimra-Geräte im Netzwerk (oder „IP-Adresse
+eingeben“). Am Glimra-OS-PC die App **GlimraApp** öffnen und den Code eingeben – danach lässt sich der PC
+vom Windows-PC aus steuern: sperren, Nachricht, Link öffnen, Zwischenablage holen/senden, Datei senden,
+Ton, Energie sparen, Neustart, Ausschalten, Bildschirm ansehen, Programme beenden und starten.
+
 ## 9. Von Windows umziehen
 
 **Übers Netzwerk:** In Glimra OS die App **Umzug** öffnen → „Empfang einschalten“. Unter Windows `GlimraSetup.exe` →

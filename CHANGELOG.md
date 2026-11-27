@@ -2,6 +2,16 @@
 
 Alle wichtigen Änderungen an Glimra OS. Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.3.0] – 2026-11-27 „Funke“
+
+### Neu
+- **PCs steuern (Windows):** Der Setup-Manager steuert jetzt selbst andere Glimra-PCs – z. B. den
+  Glimra-OS-Laptop: im Netzwerk suchen, mit Code koppeln, Status ansehen, sperren, Nachricht, Link,
+  Zwischenablage, Datei senden, Ton, Energie sowie Bildschirm, Programme und Programm starten.
+- **Glimra OS** kann jetzt dieselben Verwaltungsfunktionen wie der Windows-Agent: Bildschirm ansehen,
+  Programme sehen und beenden, Programme starten, Fenster-Nachricht und angemeldete Benutzer.
+- GlimraApp blendet jede Verwaltungsfunktion einzeln ein, je nachdem was das Gerät kann.
+
 ## [1.2.0] – 2026-11-27 „Funke“
 
 ### Neu

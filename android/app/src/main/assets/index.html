@@ -118,12 +118,12 @@
   <div id="adminBox" style="display:none">
   <div class="label">PC-Verwaltung</div>
   <div class="grid">
-    <div class="act" data-cmd="screen"><div class="tile g-blue"><img class="ic" src="icons/camera.svg"></div>Bildschirm ansehen</div>
-    <div class="act" data-cmd="procs"><div class="tile g-green"><img class="ic" src="icons/taskman.svg"></div>Programme</div>
-    <div class="act" data-cmd="launch"><div class="tile g-purple"><img class="ic" src="icons/apps.svg"></div>Programm starten</div>
-    <div class="act" data-cmd="message"><div class="tile g-orange"><img class="ic" src="icons/info.svg"></div>Fenster-Nachricht</div>
-    <div class="act" data-cmd="users"><div class="tile g-cyan"><img class="ic" src="icons/user.svg"></div>Benutzer</div>
-    <div class="act" data-cmd="logoff"><div class="tile g-red"><img class="ic" src="icons/user.svg"></div>Abmelden</div>
+    <div class="act" data-cmd="screen" data-feat="screen"><div class="tile g-blue"><img class="ic" src="icons/camera.svg"></div>Bildschirm ansehen</div>
+    <div class="act" data-cmd="procs" data-feat="processes"><div class="tile g-green"><img class="ic" src="icons/taskman.svg"></div>Programme</div>
+    <div class="act" data-cmd="launch" data-feat="launch"><div class="tile g-purple"><img class="ic" src="icons/apps.svg"></div>Programm starten</div>
+    <div class="act" data-cmd="message" data-feat="message"><div class="tile g-orange"><img class="ic" src="icons/info.svg"></div>Fenster-Nachricht</div>
+    <div class="act" data-cmd="users" data-feat="users"><div class="tile g-cyan"><img class="ic" src="icons/user.svg"></div>Benutzer</div>
+    <div class="act" data-cmd="logoff" data-feat="logoff"><div class="tile g-red"><img class="ic" src="icons/user.svg"></div>Abmelden</div>
   </div>
   </div>
   <div class="label">Energie</div>
@@ -268,7 +268,9 @@ async function refreshStatus() {
     $("stUser").textContent = r.data.user + " auf " + r.data.hostname; $("stOs").textContent = r.data.os;
     $("stRam").textContent = r.data.ram; $("stUp").textContent = r.data.uptime; $("stIp").textContent = r.data.ip; $("stBat").textContent = r.data.battery;
     const f = r.data.features || []; current.features = f; current.launch = r.data.launch || [];
-    $("adminBox").style.display = f.includes("screen") || f.includes("processes") ? "" : "none";
+    let anyAdmin = false;
+    document.querySelectorAll("#adminBox [data-feat]").forEach(t => { const on = f.includes(t.dataset.feat); t.style.display = on ? "" : "none"; anyAdmin = anyAdmin || on });
+    $("adminBox").style.display = anyAdmin ? "" : "none";
     $("hibBtn").style.display = f.includes("hibernate") ? "" : "none";
     $("stDiskBox").style.display = r.data.disk ? "" : "none"; $("stDisk").textContent = r.data.disk || "";
     $("stDomBox").style.display = r.data.domain ? "" : "none"; $("stDom").textContent = r.data.domain || "";
