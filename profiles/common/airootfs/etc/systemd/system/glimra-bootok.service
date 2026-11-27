@@ -1,0 +1,6 @@
+[Unit]
+Description=Glimra OS Start erfolgreich
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/glimra-bootok

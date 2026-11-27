@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+export PYTHONPATH=/usr/lib/glimra
+exec python3 -m glimra_panel "$@"

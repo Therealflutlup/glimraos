@@ -1,0 +1,1 @@
+Erste Version: Geräte im WLAN finden, Koppeln per Code, PC sperren, Zwischenablage, Dateien senden, Nachrichten, Links, Lautstärke, Medien, Energie, Teilen an den PC und Glimra Panel für Server.

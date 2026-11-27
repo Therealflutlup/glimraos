@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>GlimraApp</title>
+<style>
+  :root { --bg:#0d1020; --panel:#161a2c; --card:#1d2338; --hover:#2a3252; --border:#2f3858; --text:#eef1fb; --dim:#9ea7c4;
+          --accent:#5b8cff; --accent2:#a06bff; --ok:#4ad295; --bad:#ff5d6c; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font-family:Inter, Roboto, system-ui, sans-serif; }
+  body { min-height:100vh; padding:20px 18px 40px; }
+  .screen { display:none; } .screen.active { display:block; animation:fade .2s; }
+  @keyframes fade { from { opacity:0; transform:translateY(6px) } to { opacity:1 } }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+  header h1 { font-size:22px; margin:0; } header p { margin:2px 0 0; color:var(--dim); font-size:13px; }
+  .back { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:var(--card); border:1px solid var(--border); }
+  .logo { width:46px; height:46px; flex:none; background:url(logo.svg) center/contain no-repeat; }
+  .ic { width:22px; height:22px; display:block; }
+  .tile { width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .tile .ic { width:24px; height:24px; }
+  .g-blue { background:linear-gradient(#5b8cff,#3a5bd9); } .g-green { background:linear-gradient(#2ed3a1,#159c78); }
+  .g-red { background:linear-gradient(#ff6b6b,#d63b4f); } .g-orange { background:linear-gradient(#ffb347,#e07b1a); }
+  .g-purple { background:linear-gradient(#a06bff,#6b3cff); } .g-cyan { background:linear-gradient(#3fc5f0,#1f86c9); }
+  .g-pink { background:linear-gradient(#f06bd0,#b13fa0); } .g-grey { background:linear-gradient(#8a94b8,#5a6386); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:12px; }
+  .row { display:flex; align-items:center; gap:14px; }
+  .item { display:flex; align-items:center; gap:14px; padding:14px; background:var(--card); border:1px solid var(--border); border-radius:16px; margin-bottom:10px; }
+  .item:active, .btn:active, .act:active { transform:scale(.98); background:var(--hover); }
+  .item .t { font-weight:600; font-size:15px; } .item .s { color:var(--dim); font-size:12.5px; margin-top:2px; }
+  .grow { flex:1; min-width:0; }
+  .label { color:var(--dim); font-size:12px; font-weight:600; letter-spacing:.3px; margin:20px 2px 10px; text-transform:uppercase; }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:14px; border-radius:14px; border:1px solid var(--border);
+         background:var(--card); color:var(--text); font-size:15px; font-weight:600; font-family:inherit; }
+  .btn.primary { background:var(--accent); border-color:transparent; } .btn.danger { color:var(--bad); }
+  .btn + .btn { margin-top:10px; }
+  input, textarea { width:100%; padding:14px; border-radius:14px; border:1px solid var(--border); background:var(--card); color:var(--text);
+                    font-size:16px; font-family:inherit; margin-bottom:10px; }
+  input:focus, textarea:focus { outline:2px solid var(--accent); border-color:transparent; }
+  textarea { min-height:90px; resize:vertical; }
+  .code { display:flex; gap:8px; justify-content:center; margin:6px 0 16px; }
+  .code input { width:44px; height:58px; padding:0; text-align:center; font-size:26px; font-weight:600; margin:0; }
+  .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+  .act { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px 6px; display:flex; flex-direction:column;
+         align-items:center; gap:8px; font-size:12.5px; text-align:center; }
+  .stat { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-top:12px; }
+  .stat div { font-size:12px; color:var(--dim); } .stat b { display:block; color:var(--text); font-size:14px; font-weight:600; margin-top:2px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--ok); display:inline-block; margin-right:6px; }
+  .dot.off { background:var(--bad); }
+  .empty { color:var(--dim); font-size:14px; text-align:center; padding:20px 0; }
+  .spin { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:sp 1s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg) } }
+  .sheet { position:fixed; inset:0; background:rgba(5,6,12,.6); display:none; align-items:flex-end; z-index:10; }
+  .sheet.show { display:flex; }
+  .sheet .box { width:100%; background:var(--panel); border-radius:22px 22px 0 0; padding:22px 18px 30px; border-top:1px solid var(--border); }
+  .sheet h2 { margin:0 0 14px; font-size:18px; }
+  #toast { position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:var(--panel); border:1px solid var(--border);
+           padding:11px 18px; border-radius:22px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:20; white-space:nowrap; }
+  #toast.show { opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- Startseite: Geräte -->
+<section id="home" class="screen active">
+  <header><div class="logo"></div><div><h1>GlimraApp</h1><p>Steuere deinen Glimra-OS-PC vom Handy</p></div></header>
+  <div class="label">Meine Geräte</div>
+  <div id="saved"></div>
+  <div class="label">Im WLAN gefunden</div>
+  <div id="found"><div class="empty">Suche …</div></div>
+  <button class="btn" id="searchBtn"><img class="ic" src="icons/refresh.svg">Erneut suchen</button>
+  <button class="btn" id="manualBtn"><img class="ic" src="icons/plus.svg">IP-Adresse eingeben</button>
+</section>
+
+<!-- Koppeln -->
+<section id="pair" class="screen">
+  <header><div class="back" data-back><img class="ic" src="icons/chevron.svg" style="transform:rotate(180deg)"></div>
+    <div><h1>Koppeln</h1><p id="pairName"></p></div></header>
+  <div class="card">
+    <p style="margin:0 0 12px;color:var(--dim);font-size:14px">Öffne am PC die App <b style="color:var(--text)">GlimraApp</b> und gib den 6-stelligen Code ein:</p>
+    <div class="code" id="codeBoxes"></div>
+    <button class="btn primary" id="pairBtn">Verbinden</button>
+  </div>
+</section>
+
+<!-- Fernsteuerung -->
+<section id="control" class="screen">
+  <header><div class="back" data-back><img class="ic" src="icons/chevron.svg" style="transform:rotate(180deg)"></div>
+    <div class="grow"><h1 id="ctlName">PC</h1><p id="ctlState"><span class="dot"></span>verbunden</p></div></header>
+  <div class="card">
+    <div class="row"><div class="tile g-blue"><img class="ic" src="icons/computer.svg"></div>
+      <div class="grow"><div style="font-weight:600" id="stUser">–</div><div style="color:var(--dim);font-size:12.5px" id="stOs">–</div></div></div>
+    <div class="stat">
+      <div>Arbeitsspeicher<b id="stRam">–</b></div><div>Laufzeit<b id="stUp">–</b></div>
+      <div>IP-Adresse<b id="stIp">–</b></div><div>Akku<b id="stBat">–</b></div>
+    </div>
+  </div>
+  <div class="label">Steuerung</div>
+  <div class="grid">
+    <div class="act" data-cmd="lock"><div class="tile g-red"><img class="ic" src="icons/lock.svg"></div>PC sperren</div>
+    <div class="act" data-cmd="clipGet"><div class="tile g-cyan"><img class="ic" src="icons/download.svg"></div>Zwischen&shy;ablage holen</div>
+    <div class="act" data-cmd="clipSend"><div class="tile g-cyan"><img class="ic" src="icons/clipboard.svg"></div>Zwischen&shy;ablage senden</div>
+    <div class="act" data-cmd="file"><div class="tile g-pink"><img class="ic" src="icons/upload.svg"></div>Datei senden</div>
+    <div class="act" data-cmd="msg"><div class="tile g-purple"><img class="ic" src="icons/send.svg"></div>Nachricht</div>
+    <div class="act" data-cmd="link"><div class="tile g-orange"><img class="ic" src="icons/link.svg"></div>Link öffnen</div>
+  </div>
+  <div class="label">Medien &amp; Ton</div>
+  <div class="grid">
+    <div class="act" data-cmd="vol-down"><div class="tile g-grey"><img class="ic" src="icons/minimize.svg"></div>Leiser</div>
+    <div class="act" data-cmd="vol-mute"><div class="tile g-grey"><img class="ic" src="icons/volume.svg"></div>Stumm</div>
+    <div class="act" data-cmd="vol-up"><div class="tile g-grey"><img class="ic" src="icons/plus.svg"></div>Lauter</div>
+    <div class="act" data-cmd="media-previous"><div class="tile g-green"><img class="ic" src="icons/chevron.svg" style="transform:rotate(180deg)"></div>Zurück</div>
+    <div class="act" data-cmd="media-play-pause"><div class="tile g-green"><img class="ic" src="icons/play.svg"></div>Play/Pause</div>
+    <div class="act" data-cmd="media-next"><div class="tile g-green"><img class="ic" src="icons/chevron.svg"></div>Weiter</div>
+  </div>
+  <div class="label">Energie</div>
+  <div class="grid">
+    <div class="act" data-cmd="suspend"><div class="tile g-blue"><img class="ic" src="icons/moon.svg"></div>Energie sparen</div>
+    <div class="act" data-cmd="reboot"><div class="tile g-orange"><img class="ic" src="icons/reboot.svg"></div>Neu starten</div>
+    <div class="act" data-cmd="poweroff"><div class="tile g-red"><img class="ic" src="icons/power.svg"></div>Ausschalten</div>
+  </div>
+  <button class="btn danger" id="forgetBtn" style="margin-top:22px"><img class="ic" src="icons/trash.svg">Gerät entfernen</button>
+</section>
+
+<!-- Unterseiten-Dialog -->
+<div class="sheet" id="sheet"><div class="box">
+  <h2 id="sheetTitle"></h2>
+  <div id="sheetBody"></div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+// ---------- Brücke: Android (window.Glimra) oder Browser-Ersatz zum Testen
+const L = window.Glimra || {
+  get: (k) => localStorage.getItem(k) || "", set: (k, v) => localStorage.setItem(k, v),
+  deviceName: () => "Browser", toast: (t) => toast(t), copy: (t) => navigator.clipboard && navigator.clipboard.writeText(t),
+  paste: () => "", takeShare: () => "", openPanel: (u) => location.href = u,
+  http: (id, method, url, token, body) => {
+    const h = { "Content-Type": "application/json" }; if (token) h.Authorization = "Bearer " + token;
+    fetch(url, { method, headers: h, body: method === "POST" ? body : undefined })
+      .then(async r => window.__glimraCb(id, r.status, await r.text())).catch(() => window.__glimraCb(id, 0, '{"error":"Nicht erreichbar"}'));
+  },
+  discover: (id) => setTimeout(() => window.__glimraCb(id, 200, JSON.stringify(window.__mockFound || [])), 300),
+  pickFile: (id) => window.__glimraCb(id, 0, '{"error":"Nur in der App"}'),
+  uploadShared: (id) => window.__glimraCb(id, 0, '{"error":"Nur in der App"}'),
+};
+let cbId = 0; const cbs = {};
+window.__glimraCb = (id, status, text) => { const c = cbs[id]; delete cbs[id]; if (c) { let d; try { d = JSON.parse(text) } catch (e) { d = { error: text } } c({ status, data: d }) } };
+const call = (fn, ...args) => new Promise(res => { const id = ++cbId; cbs[id] = res; L[fn](id, ...args) });
+const http = (method, url, token, body) => call("http", method, url, token || "", body ? JSON.stringify(body) : "");
+
+// ---------- Hilfen
+const $ = (id) => document.getElementById(id);
+const icon = (n) => `<img class="ic" src="icons/${n}.svg">`;
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])) }
+function toast(t) { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(e._h); e._h = setTimeout(() => e.classList.remove("show"), 2600) }
+const devices = () => { try { return JSON.parse(L.get("devices") || "[]") } catch (e) { return [] } };
+const saveDevices = (d) => L.set("devices", JSON.stringify(d));
+let stack = ["home"], current = null, pairTarget = null, statusTimer = null;
+
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id));
+  if (stack[stack.length - 1] !== id) stack.push(id);
+  clearInterval(statusTimer);
+  window.scrollTo(0, 0);
+}
+window.goBack = () => {
+  if ($("sheet").classList.contains("show")) { closeSheet(); return true }
+  if (stack.length <= 1) return false;
+  stack.pop(); const id = stack[stack.length - 1]; stack.pop(); show(id);
+  if (id === "home") renderHome();
+  return true;
+};
+document.querySelectorAll("[data-back]").forEach(b => b.onclick = () => window.goBack());
+
+function openSheet(title, html) { $("sheetTitle").textContent = title; $("sheetBody").innerHTML = html; $("sheet").classList.add("show") }
+function closeSheet() { $("sheet").classList.remove("show") }
+$("sheet").onclick = (e) => { if (e.target.id === "sheet") closeSheet() };
+
+// ---------- Startseite
+function renderHome() {
+  const saved = devices();
+  $("saved").innerHTML = saved.length ? "" : '<div class="empty">Noch kein Gerät gekoppelt.</div>';
+  saved.forEach((d, i) => {
+    const el = document.createElement("div"); el.className = "item";
+    el.innerHTML = `<div class="tile ${d.type === "server" ? "g-orange" : "g-blue"}">${icon(d.type === "server" ? "network" : "computer")}</div>
+      <div class="grow"><div class="t">${esc(d.name)}</div><div class="s">${esc(d.host)} · ${d.type === "server" ? "Glimra Server" : "Glimra OS Desktop"}</div></div>${icon("chevron")}`;
+    el.onclick = () => d.type === "server" ? L.openPanel((d.tls === false ? "http://" : "https://") + d.host) : openControl(d);
+    $("saved").append(el);
+  });
+}
+
+async function search() {
+  $("found").innerHTML = '<div class="empty" style="display:flex;gap:10px;justify-content:center;align-items:center"><div class="spin"></div>Suche im WLAN …</div>';
+  const r = await call("discover");
+  const list = Array.isArray(r.data) ? r.data : [];
+  const known = new Set(devices().map(d => d.host));
+  $("found").innerHTML = list.length ? "" : '<div class="empty">Nichts gefunden. Ist der PC im selben WLAN und die Fernsteuerung an?</div>';
+  list.forEach(f => {
+    const host = f.ip + ":" + f.port;
+    const el = document.createElement("div"); el.className = "item";
+    el.innerHTML = `<div class="tile ${f.type === "server" ? "g-orange" : "g-green"}">${icon(f.type === "server" ? "network" : "computer")}</div>
+      <div class="grow"><div class="t">${esc(f.name)}${f.user ? " · " + esc(f.user) : ""}</div><div class="s">${esc(host)} · ${f.type === "server" ? "Glimra Server" : (known.has(host) ? "gekoppelt" : "zum Koppeln tippen")}</div></div>${icon("chevron")}`;
+    el.onclick = () => {
+      if (f.type === "server") { addDevice({ host, name: f.name, type: "server", token: "", tls: f.tls !== false }); L.openPanel((f.tls === false ? "http://" : "https://") + host); return }
+      const d = devices().find(x => x.host === host);
+      d ? openControl(d) : openPair({ host, name: f.name });
+    };
+    $("found").append(el);
+  });
+}
+$("searchBtn").onclick = search;
+$("manualBtn").onclick = () => {
+  openSheet("Gerät manuell hinzufügen", `<input id="mIp" placeholder="IP-Adresse, z. B. 192.168.178.20" inputmode="decimal">
+    <button class="btn primary" id="mDesk">${icon("computer")}Glimra-OS-PC koppeln</button>
+    <button class="btn" id="mSrv">${icon("network")}Glimra Server öffnen</button>`);
+  $("mDesk").onclick = () => { const ip = $("mIp").value.trim(); if (!ip) return; closeSheet(); openPair({ host: ip.includes(":") ? ip : ip + ":8765", name: ip }) };
+  $("mSrv").onclick = () => { const ip = $("mIp").value.trim(); if (!ip) return; const host = ip.includes(":") ? ip : ip + ":8443";
+    closeSheet(); addDevice({ host, name: "Glimra Server", type: "server", token: "", tls: true }); L.openPanel("https://" + host) };
+};
+function addDevice(d) { saveDevices(devices().filter(x => x.host !== d.host).concat([d])) }
+
+// ---------- Koppeln
+function openPair(target) {
+  pairTarget = target; $("pairName").textContent = target.name + " (" + target.host + ")";
+  $("codeBoxes").innerHTML = ""; const boxes = [];
+  for (let i = 0; i < 6; i++) {
+    const inp = document.createElement("input"); inp.inputMode = "numeric"; inp.maxLength = 1; boxes.push(inp);
+    inp.oninput = () => { inp.value = inp.value.replace(/\D/g, ""); if (inp.value && i < 5) boxes[i + 1].focus(); if (boxes.every(b => b.value)) $("pairBtn").click() };
+    inp.onkeydown = (e) => { if (e.key === "Backspace" && !inp.value && i > 0) boxes[i - 1].focus() };
+    $("codeBoxes").append(inp);
+  }
+  show("pair"); setTimeout(() => boxes[0].focus(), 200);
+}
+let pairing = false;
+$("pairBtn").onclick = async () => {
+  if (pairing) return;
+  const code = [...$("codeBoxes").querySelectorAll("input")].map(i => i.value).join("");
+  if (code.length !== 6) { toast("Bitte alle 6 Ziffern eingeben"); return }
+  pairing = true;
+  const r = await http("POST", "http://" + pairTarget.host + "/pair", "", { code, device: L.deviceName() });
+  pairing = false;
+  if (r.status === 200 && r.data.token) {
+    const d = { host: pairTarget.host, name: r.data.name || pairTarget.name, type: "desktop", token: r.data.token };
+    addDevice(d); toast("Verbunden!"); stack = ["home"]; openControl(d);
+  } else toast(r.data.error || "Verbindung fehlgeschlagen");
+};
+
+// ---------- Fernsteuerung
+async function refreshStatus() {
+  const r = await http("GET", "http://" + current.host + "/status", current.token);
+  if (r.status === 200) {
+    $("ctlState").innerHTML = '<span class="dot"></span>verbunden';
+    $("stUser").textContent = r.data.user + " auf " + r.data.hostname; $("stOs").textContent = r.data.os;
+    $("stRam").textContent = r.data.ram; $("stUp").textContent = r.data.uptime; $("stIp").textContent = r.data.ip; $("stBat").textContent = r.data.battery;
+  } else if (r.status === 401) {
+    $("ctlState").innerHTML = '<span class="dot off"></span>Kopplung abgelaufen – Gerät entfernen und neu koppeln';
+  } else {
+    $("ctlState").innerHTML = '<span class="dot off"></span>nicht erreichbar';
+  }
+}
+function openControl(d) {
+  current = d; $("ctlName").textContent = d.name; show("control"); refreshStatus();
+  statusTimer = setInterval(refreshStatus, 5000);
+}
+const post = async (path, body, ok) => {
+  const r = await http("POST", "http://" + current.host + path, current.token, body || {});
+  toast(r.status === 200 ? ok : (r.data.error || "Fehlgeschlagen"));
+  return r;
+};
+document.querySelectorAll("[data-cmd]").forEach(el => el.onclick = async () => {
+  const c = el.dataset.cmd;
+  if (c === "lock") return post("/lock", {}, "PC gesperrt");
+  if (c === "clipGet") {
+    const r = await http("GET", "http://" + current.host + "/clipboard", current.token);
+    if (r.status === 200) { L.copy(r.data.text || ""); toast(r.data.text ? "In die Zwischenablage kopiert" : "Zwischenablage am PC ist leer") }
+    else toast(r.data.error || "Fehlgeschlagen");
+    return;
+  }
+  if (c === "clipSend" || c === "msg" || c === "link") {
+    const conf = { clipSend: ["Zwischenablage senden", "Text für die PC-Zwischenablage", "/clipboard", "text", "Zwischenablage gesendet"],
+                   msg: ["Nachricht an den PC", "Nachricht …", "/notify", "text", "Nachricht gesendet"],
+                   link: ["Link am PC öffnen", "https://…", "/open", "url", "Link wird geöffnet"] }[c];
+    openSheet(conf[0], `<textarea id="sText" placeholder="${conf[1]}"></textarea><button class="btn primary" id="sSend">${icon("send")}Senden</button>`);
+    $("sText").value = c === "msg" ? "" : L.paste();
+    $("sSend").onclick = () => { const v = $("sText").value; if (!v) return; closeSheet(); post(conf[2], { [conf[3]]: v }, conf[4]) };
+    return;
+  }
+  if (c === "file") {
+    toast("Datei auswählen …");
+    const host = current.host.split("/")[0];
+    const r = await call("pickFile", host, current.token);
+    if (r.status === 200) toast("Datei gesendet – liegt in Downloads"); else if (r.data.error !== "abgebrochen") toast(r.data.error || "Fehlgeschlagen");
+    return;
+  }
+  if (c.startsWith("vol-")) return post("/volume", { action: c.slice(4) }, "OK");
+  if (c.startsWith("media-")) return post("/media", { action: c.slice(6) }, "OK");
+  if (c === "suspend" || c === "reboot" || c === "poweroff") {
+    const t = { suspend: "Energie sparen", reboot: "Neu starten", poweroff: "Ausschalten" }[c];
+    openSheet(t + "?", `<button class="btn ${c === "poweroff" ? "danger" : "primary"}" id="pOk">${icon(c === "suspend" ? "moon" : c === "reboot" ? "reboot" : "power")}${t}</button><button class="btn" id="pNo">Abbrechen</button>`);
+    $("pOk").onclick = () => { closeSheet(); post("/power", { action: c }, t + " …") };
+    $("pNo").onclick = closeSheet;
+  }
+});
+$("forgetBtn").onclick = () => { saveDevices(devices().filter(d => d.host !== current.host)); toast("Gerät entfernt"); stack = ["home"]; show("home"); renderHome() };
+
+// ---------- "Teilen" aus anderen Apps
+window.onShare = () => {
+  const raw = L.takeShare(); if (!raw) return;
+  const s = JSON.parse(raw); const desks = devices().filter(d => d.type === "desktop");
+  if (!desks.length) { toast("Zuerst einen PC koppeln"); return }
+  const opts = desks.map((d, i) => `<option value="${i}">${esc(d.name)}</option>`).join("");
+  const sel = desks.length > 1 ? `<select id="shTo" style="width:100%;padding:14px;border-radius:14px;background:var(--card);color:var(--text);border:1px solid var(--border);margin-bottom:10px">${opts}</select>` : "";
+  const target = () => desks[$("shTo") ? +$("shTo").value : 0];
+  if (s.type === "file") {
+    openSheet("An PC senden", `<p style="color:var(--dim)">${esc(s.name)}</p>${sel}<button class="btn primary" id="shF">${icon("upload")}Datei senden</button>`);
+    $("shF").onclick = async () => { const d = target(); closeSheet(); toast("Sende …");
+      const r = await call("uploadShared", d.host, d.token); toast(r.status === 200 ? "Gesendet – liegt in Downloads" : (r.data.error || "Fehlgeschlagen")) };
+  } else {
+    const isUrl = /^https?:\/\/\S+$/.test(s.text.trim());
+    openSheet("An PC senden", `<textarea id="shT">${esc(s.text)}</textarea>${sel}
+      ${isUrl ? `<button class="btn primary" id="shL">${icon("link")}Link am PC öffnen</button>` : ""}
+      <button class="btn ${isUrl ? "" : "primary"}" id="shC">${icon("clipboard")}In PC-Zwischenablage</button>
+      <button class="btn" id="shN">${icon("send")}Als Nachricht zeigen</button>`);
+    const send = (path, key, ok) => { const d = target(); current = d; closeSheet(); post(path, { [key]: $("shT") ? $("shT").value : s.text }, ok) };
+    if (isUrl) $("shL").onclick = () => send("/open", "url", "Link wird geöffnet");
+    $("shC").onclick = () => send("/clipboard", "text", "Zwischenablage gesendet");
+    $("shN").onclick = () => send("/notify", "text", "Nachricht gesendet");
+  }
+};
+
+renderHome(); search(); window.onShare();
+</script>
+</body>
+</html>

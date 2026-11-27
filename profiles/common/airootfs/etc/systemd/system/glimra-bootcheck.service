@@ -1,0 +1,13 @@
+[Unit]
+Description=Glimra OS Boot-Check (lädt bei wiederholten Startproblemen das letzte Backup)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+ConditionPathExists=/etc/glimra/installed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/glimra-bootcheck
+
+[Install]
+WantedBy=sysinit.target

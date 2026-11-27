@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Glimra Store/Update-Helfer (läuft als root über sudoers).
+#   glimra-store install PAKET | install flatpak:APP.ID | remove PAKET | update
+set -euo pipefail
+[[ $EUID -eq 0 ]] || { echo "Bitte als root ausführen." >&2; exit 1; }
+ACTION=${1:-}
+PKG=${2:-}
+
+check_pkg() {
+  [[ $PKG =~ ^(flatpak:[A-Za-z0-9._-]+|[a-z0-9@._+-]+)$ ]] || { echo "Ungültiger Paketname" >&2; exit 1; }
+}
+
+protected() {
+  # Grundsystem und Glimra-Pakete dürfen nicht entfernt werden
+  case $1 in base|linux|linux-firmware|systemd|pacman|sudo|grub|btrfs-progs|snapper|python|pyside6|qt6-*|mesa) return 0 ;; esac
+  grep -qx "$1" /etc/glimra/packages.list 2>/dev/null
+}
+
+case $ACTION in
+  install)
+    check_pkg
+    if [[ $PKG == flatpak:* ]]; then
+      command -v flatpak >/dev/null || pacman -S --noconfirm --needed flatpak
+      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      flatpak install -y --noninteractive flathub "${PKG#flatpak:}"
+    else
+      pacman -Sy --noconfirm --needed "$PKG"
+    fi
+    ;;
+  remove)
+    check_pkg
+    if [[ $PKG == flatpak:* ]]; then
+      flatpak uninstall -y --noninteractive "${PKG#flatpak:}"
+    else
+      protected "$PKG" && { echo "$PKG gehört zum System und kann nicht entfernt werden." >&2; exit 1; }
+      pacman -Rns --noconfirm "$PKG"
+    fi
+    ;;
+  update)
+    echo "Suche nach Updates …"
+    pacman -Syu --noconfirm
+    if command -v flatpak >/dev/null; then
+      echo "Aktualisiere Flatpak-Apps …"
+      flatpak update -y --noninteractive
+    fi
+    echo "Fertig."
+    ;;
+  *) echo "Nutzung: glimra-store install|remove PAKET  oder  glimra-store update" >&2; exit 1 ;;
+esac

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Startet X11-Programme (Steam, Wine-Spiele) in der Glimra Shell über gamescope.
+if command -v gamescope >/dev/null; then
+    exec gamescope -W 1600 -H 900 -w 1600 -h 900 --force-windows-fullscreen -- "$@"
+fi
+echo "gamescope fehlt – bitte Gaming-Profil installieren (glimra-profile gaming)." >&2
+exit 1

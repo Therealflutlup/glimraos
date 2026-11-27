@@ -1,0 +1,9 @@
+# Glimra OS Server
+openssh
+samba
+docker
+qemu-base
+libvirt
+dnsmasq
+nginx
+ufw

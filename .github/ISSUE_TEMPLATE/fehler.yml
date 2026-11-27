@@ -1,0 +1,35 @@
+name: Fehler melden
+description: Etwas funktioniert nicht wie erwartet
+labels: [fehler]
+body:
+  - type: dropdown
+    id: teil
+    attributes:
+      label: Welcher Teil?
+      options: [Glimra OS Desktop, Glimra OS Server, GlimraApp (Android), Glimra Setup-Manager (Windows), Installer, Webseite]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: textarea
+    id: was
+    attributes:
+      label: Was ist passiert?
+      description: Was hast du gemacht, was hast du erwartet, was ist stattdessen passiert?
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Rechner / Handy
+      placeholder: "z. B. Lenovo ThinkPad T14, oder VirtualBox 7, oder Pixel 8 mit Android 15"
+  - type: textarea
+    id: bericht
+    attributes:
+      label: Systembericht
+      description: In Glimra OS Hilfe → „Systembericht erstellen“ und die Datei hier hineinziehen.

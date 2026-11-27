@@ -1,0 +1,15 @@
+[Unit]
+Description=Glimra Panel (Weboberfläche für Glimra OS Server)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/glimra/panel.json
+
+[Service]
+ExecStartPre=-/usr/local/bin/glimra-panel --make-cert
+ExecStart=/usr/local/bin/glimra-panel
+ExecStartPost=-/usr/local/bin/glimra-bootok
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

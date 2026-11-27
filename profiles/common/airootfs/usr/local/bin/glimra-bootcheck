@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Boot-Check: Startet das System zweimal hintereinander nicht richtig,
+# wird automatisch das letzte Backup (vor dem letzten Update) geladen.
+STATE=/var/lib/glimra
+[[ -f /etc/glimra/installed ]] || exit 0
+mkdir -p "$STATE"
+fails=$(cat "$STATE/failcount" 2>/dev/null || echo 0)
+[[ $fails =~ ^[0-9]+$ ]] || fails=0
+if [[ -f $STATE/boot-pending ]]; then
+    fails=$((fails + 1))
+fi
+echo "$fails" > "$STATE/failcount"
+touch "$STATE/boot-pending"
+
+if (( fails >= 2 )); then
+    echo 0 > "$STATE/failcount"
+    rm -f "$STATE/boot-pending"
+    last=$(snapper --jsonout list 2>/dev/null | python3 -c '
+import json, sys
+snaps = [s for s in json.load(sys.stdin).get("root", []) if s.get("number")]
+pre = [s for s in snaps if s.get("type") == "pre"] or snaps
+print(pre[-1]["number"] if pre else "")' 2>/dev/null)
+    if [[ -n $last ]]; then
+        msg="Ein Problem ist aufgetreten – Backup wird geladen …"
+        echo "$msg" > /dev/console 2>/dev/null || true
+        for t in /dev/tty1 /dev/tty2; do printf '\n\n   %s\n\n' "$msg" > "$t" 2>/dev/null || true; done
+        logger -t glimra-bootcheck "$msg (Snapshot $last)"
+        sleep 4
+        if /usr/local/bin/glimra-backup restore "$last"; then
+            systemctl reboot
+        fi
+    fi
+fi

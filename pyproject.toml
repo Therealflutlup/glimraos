@@ -1,0 +1,18 @@
+[project]
+name = "glimraos"
+dynamic = ["version"]
+description = "Glimra OS – eigenes Betriebssystem mit Glimra Shell, Glimra Panel, GlimraApp und Setup-Manager"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = ["android", "work", "out"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+ignore = ["B008", "E731", "E501"]

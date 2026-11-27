@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Meldet: Das System ist erfolgreich gestartet (setzt den Boot-Zähler zurück).
+mkdir -p /var/lib/glimra
+rm -f /var/lib/glimra/boot-pending
+echo 0 > /var/lib/glimra/failcount

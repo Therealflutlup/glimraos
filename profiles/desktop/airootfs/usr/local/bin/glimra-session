@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Startet die Glimra Shell direkt auf der Grafikkarte (ohne X11).
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+export QT_QPA_PLATFORM=eglfs
+export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
+export XKB_DEFAULT_LAYOUT=de
+export QT_QUICK_CONTROLS_STYLE=Basic
+export PYTHONPATH=/usr/lib/glimra
+# weniger Speicher-Verschnitt bei Python mit mehreren Threads
+export MALLOC_ARENA_MAX=2
+cd "$HOME" || exit 1
+# USB-Sticks automatisch einbinden
+command -v udiskie >/dev/null && udiskie --no-tray --no-notify &
+python3 -m glimra_shell "$@" 2>"$XDG_RUNTIME_DIR/glimra-shell.log"
+kill %1 2>/dev/null
+echo
+echo "Die Glimra Shell wurde beendet. Neu starten mit:  glimra-session"
+echo "Fehlerprotokoll: $XDG_RUNTIME_DIR/glimra-shell.log"

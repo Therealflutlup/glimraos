@@ -1,0 +1,37 @@
+module Glimra
+singleton Theme 1.0 Theme.qml
+Shell 1.0 Shell.qml
+Taskbar 1.0 Taskbar.qml
+StartMenu 1.0 StartMenu.qml
+GlimraWindow 1.0 GlimraWindow.qml
+GlimraButton 1.0 GlimraButton.qml
+GlimraField 1.0 GlimraField.qml
+SetupWizard 1.0 SetupWizard.qml
+LockScreen 1.0 LockScreen.qml
+Wallpaper 1.0 Wallpaper.qml
+GlimraLogo 1.0 GlimraLogo.qml
+Icon 1.0 Icon.qml
+AppIcon 1.0 AppIcon.qml
+IconButton 1.0 IconButton.qml
+PageHeader 1.0 PageHeader.qml
+Card 1.0 Card.qml
+SettingsApp 1.0 SettingsApp.qml
+ToolsApp 1.0 ToolsApp.qml
+TaskManagerApp 1.0 TaskManagerApp.qml
+WallpaperApp 1.0 WallpaperApp.qml
+AssistantApp 1.0 AssistantApp.qml
+RemoteApp 1.0 RemoteApp.qml
+SecurityApp 1.0 SecurityApp.qml
+BackupApp 1.0 BackupApp.qml
+VmApp 1.0 VmApp.qml
+TransferApp 1.0 TransferApp.qml
+HelpApp 1.0 HelpApp.qml
+CalcApp 1.0 CalcApp.qml
+GlimraSlider 1.0 GlimraSlider.qml
+QuickToggle 1.0 QuickToggle.qml
+QuickSettings 1.0 QuickSettings.qml
+InfoCenter 1.0 InfoCenter.qml
+ClipboardPopup 1.0 ClipboardPopup.qml
+WindowSwitcher 1.0 WindowSwitcher.qml
+StoreApp 1.0 StoreApp.qml
+UpdateApp 1.0 UpdateApp.qml

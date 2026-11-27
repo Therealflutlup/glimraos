@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Erststart-Assistent für Glimra OS Server
+set -euo pipefail
+B='\e[1;38;2;91;140;255m'; N='\e[0m'
+clear
+echo -e "${B}"
+echo "  ╭──────────────────────────────────────╮"
+echo "  │   Willkommen bei Glimra OS Server      │"
+echo "  ╰──────────────────────────────────────╯"
+echo -e "${N}"
+echo "  Lege ein Passwort für das Glimra Panel fest."
+echo "  Damit verwaltest du den Server später im Browser."
+echo
+while true; do
+    read -rsp "  Panel-Passwort (mind. 8 Zeichen): " PW1; echo
+    read -rsp "  Passwort wiederholen:             " PW2; echo
+    if [[ "$PW1" != "$PW2" ]]; then echo "  Die Passwörter stimmen nicht überein."; continue; fi
+    if (( ${#PW1} < 8 )); then echo "  Zu kurz."; continue; fi
+    break
+done
+printf '%s\n' "$PW1" | /usr/local/bin/glimra-panel --set-password >/dev/null
+echo "  Erstelle HTTPS-Zertifikat …"
+/usr/local/bin/glimra-panel --make-cert
+systemctl daemon-reload
+systemctl enable --now glimra-panel.service >/dev/null 2>&1 || systemctl restart glimra-panel.service
+echo
+echo "  ✓ Glimra Panel ist eingerichtet."
+glimra-server-status

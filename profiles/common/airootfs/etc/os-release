@@ -1,0 +1,14 @@
+NAME="Glimra OS"
+PRETTY_NAME="Glimra OS @VERSION@ (@CODENAME@)"
+ID=glimraos
+ID_LIKE=arch
+BUILD_ID=rolling
+VERSION="@VERSION@ (@CODENAME@)"
+VERSION_ID=@VERSION@
+VERSION_CODENAME=@CODENAME_LC@
+ANSI_COLOR="38;2;91;140;255"
+HOME_URL="https://therealflutlup.github.io/glimraos/"
+DOCUMENTATION_URL="https://github.com/therealflutlup/glimraos/blob/main/docs/HANDBUCH.md"
+SUPPORT_URL="https://github.com/therealflutlup/glimraos/issues"
+BUG_REPORT_URL="https://github.com/therealflutlup/glimraos/issues"
+LOGO=glimraos

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Backup-Helfer (Btrfs-Snapshots mit snapper). Läuft als root über sudoers.
+#   glimra-backup list | create "Beschreibung" | restore NUMMER
+set -euo pipefail
+command -v snapper >/dev/null || { echo "[]"; exit 0; }
+snapper list-configs 2>/dev/null | grep -q '^root' || { [[ ${1:-} == list ]] && echo "[]" && exit 0; echo "Backups gibt es erst nach der Installation." >&2; exit 1; }
+
+case "${1:-}" in
+  list)
+    snapper --jsonout list --columns number,type,date,description 2>/dev/null | python3 -c '
+import json, sys
+data = json.load(sys.stdin).get("root", [])
+print(json.dumps([{"number": s["number"], "type": s.get("type", ""), "date": s.get("date", ""),
+                   "description": s.get("description", "")} for s in data if s.get("number")]))'
+    ;;
+  create)
+    desc=$(printf '%s' "${2:-Manuell}" | tr -cd '[:alnum:] äöüÄÖÜß._-' | cut -c1-60)
+    snapper create --description "${desc:-Manuell}" --cleanup-algorithm number
+    ;;
+  restore)
+    n=${2:-}
+    [[ $n =~ ^[0-9]+$ ]] || { echo "Ungültige Nummer" >&2; exit 1; }
+    [[ -d /.snapshots/$n/snapshot ]] || { echo "Backup $n gibt es nicht." >&2; exit 1; }
+    dev=$(findmnt -no SOURCE / | sed 's/\[.*\]//')
+    top=/run/glimra-btrfs
+    mkdir -p "$top"
+    mount -o subvolid=5 "$dev" "$top"
+    trap 'umount "$top" 2>/dev/null || true' EXIT
+    [[ -d $top/@ && -d $top/@snapshots/$n/snapshot ]] || { echo "Unerwartetes Btrfs-Layout." >&2; exit 1; }
+    stamp=$(date +%Y%m%d-%H%M%S)
+    mv "$top/@" "$top/@vorher-$stamp"
+    btrfs subvolume snapshot "$top/@snapshots/$n/snapshot" "$top/@"
+    echo "Backup $n wird beim nächsten Start geladen. Alter Stand: @vorher-$stamp"
+    ;;
+  *) echo "Nutzung: glimra-backup list|create TEXT|restore NUMMER" >&2; exit 1 ;;
+esac

@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# Glimra-OS-Installer: installiert Glimra OS (Desktop oder Server) auf eine Festplatte.
+# ACHTUNG: Die gewählte Festplatte wird komplett gelöscht.
+set -euo pipefail
+
+B='\e[1;38;2;91;140;255m'; R='\e[1;31m'; N='\e[0m'
+EDITION=$(cat /etc/glimra/edition 2>/dev/null || echo desktop)
+GLIMRA_FILES=(
+    /usr/lib/glimra
+    /usr/local/bin/glimra-*
+    /etc/profile.d/zz-glimra-*.sh
+    /etc/glimra/edition /etc/glimra/version /etc/glimra/packages.list
+    /etc/motd
+    /etc/sudoers.d/20-glimra
+    /etc/systemd/system/glimra-bootcheck.service
+    /etc/systemd/system/glimra-bootok.service
+    /etc/systemd/system/glimra-bootok.timer
+    /etc/systemd/zram-generator.conf
+    /etc/sysctl.d/99-glimra.conf
+    /etc/systemd/journald.conf.d/glimra.conf
+    /etc/systemd/oomd.conf.d/glimra.conf
+)
+[[ $EDITION == desktop ]] && GLIMRA_FILES+=(/usr/lib/firefox/distribution/policies.json)
+[[ $EDITION == server ]] && GLIMRA_FILES+=(/etc/systemd/system/glimra-panel.service /etc/samba/smb.conf)
+
+die() { echo -e "${R}Fehler:${N} $*" >&2; exit 1; }
+
+[[ $EUID -eq 0 ]] || die "Bitte als root starten."
+[[ -d /sys/firmware/efi ]] || die "Glimra OS braucht einen UEFI-Rechner (in einer VM: EFI/UEFI einschalten)."
+ping -c1 -W3 archlinux.org >/dev/null 2>&1 || die "Keine Internetverbindung. Die Installation lädt Pakete herunter."
+
+clear
+echo -e "${B}  Glimra OS installieren (${EDITION})${N}\n"
+echo "  Gefundene Festplatten:"
+lsblk -dpno NAME,SIZE,MODEL | grep -Ev 'loop|sr[0-9]|zram' | sed 's/^/    /'
+echo
+read -rp "  Auf welche Festplatte installieren? (z. B. /dev/sda): " DISK
+[[ -b $DISK ]] || die "$DISK ist keine Festplatte."
+[[ $(lsblk -no TYPE "$DISK" | head -1) == disk ]] || die "Bitte die ganze Festplatte angeben, keine Partition."
+
+read -rp "  Rechnername [glimra-$EDITION]: " HOST
+HOST=${HOST:-glimra-$EDITION}
+[[ $HOST =~ ^[a-zA-Z0-9-]{1,63}$ ]] || die "Ungültiger Rechnername."
+
+read -rp "  Benutzername (klein, z. B. leon): " USERNAME
+[[ $USERNAME =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "Ungültiger Benutzername."
+while true; do
+    read -rsp "  Passwort: " PASS1; echo
+    read -rsp "  Passwort wiederholen: " PASS2; echo
+    [[ $PASS1 == "$PASS2" && -n $PASS1 ]] && break
+    echo "  Passwörter stimmen nicht überein oder sind leer."
+done
+if [[ $EDITION == server ]]; then
+    while true; do
+        read -rsp "  Passwort für das Glimra Panel (mind. 8 Zeichen): " PANELPW; echo
+        (( ${#PANELPW} >= 8 )) && break
+    done
+fi
+
+echo
+echo -e "  ${R}ALLE DATEN AUF $DISK WERDEN GELÖSCHT!${N}"
+read -rp "  Zum Bestätigen JA (groß) eintippen: " OK
+[[ $OK == JA ]] || die "Abgebrochen – es wurde nichts verändert."
+
+echo -e "\n${B}[1/6] Festplatte vorbereiten …${N}"
+umount -R /mnt 2>/dev/null || true
+wipefs -af "$DISK"
+sgdisk --zap-all "$DISK"
+sgdisk -n1:0:+1G -t1:ef00 -c1:EFI -n2:0:0 -t2:8300 -c2:Glimra OS "$DISK"
+partprobe "$DISK"; sleep 2
+if [[ $DISK =~ (nvme|mmcblk|loop) ]]; then P1=${DISK}p1; P2=${DISK}p2; else P1=${DISK}1; P2=${DISK}2; fi
+mkfs.fat -F32 -n EFI "$P1"
+mkfs.btrfs -f -L Glimra OS "$P2"
+
+echo -e "${B}[2/6] Btrfs-Bereiche für Snapshots anlegen …${N}"
+mount "$P2" /mnt
+for sv in @ @home @snapshots @log; do btrfs subvolume create "/mnt/$sv"; done
+umount /mnt
+OPTS=compress=zstd,noatime
+mount -o "$OPTS,subvol=@" "$P2" /mnt
+mkdir -p /mnt/{home,.snapshots,var/log,efi}
+mount -o "$OPTS,subvol=@home" "$P2" /mnt/home
+mount -o "$OPTS,subvol=@snapshots" "$P2" /mnt/.snapshots
+mount -o "$OPTS,subvol=@log" "$P2" /mnt/var/log
+# EFI-Partition unter /efi – Kernel bleiben in /boot im Btrfs und werden mit gesichert
+mount "$P1" /mnt/efi
+
+echo -e "${B}[3/6] Pakete installieren (das dauert ein paar Minuten) …${N}"
+sed -i '/^#\[multilib\]/{N;s/#//g}' /etc/pacman.conf
+mapfile -t EXTRA < /etc/glimra/packages.list
+pacstrap -K /mnt base linux linux-firmware intel-ucode amd-ucode grub efibootmgr grub-btrfs inotify-tools \
+    snap-pac "${EXTRA[@]}"
+cp /etc/pacman.conf /mnt/etc/pacman.conf
+genfstab -U /mnt >> /mnt/etc/fstab
+
+echo -e "${B}[4/6] Glimra-OS-Dateien übernehmen …${N}"
+for f in "${GLIMRA_FILES[@]}"; do
+    [[ -e $f ]] || continue
+    mkdir -p "/mnt$(dirname "$f")"
+    cp -a "$f" "/mnt$(dirname "$f")/"
+done
+rm -f /mnt/etc/os-release && cp /etc/os-release /mnt/etc/os-release
+chmod 440 /mnt/etc/sudoers.d/20-glimra
+
+echo -e "${B}[5/6] System einrichten …${N}"
+arch-chroot /mnt /bin/bash -e <<CHROOT
+ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+hwclock --systohc
+sed -i 's/^#de_DE.UTF-8/de_DE.UTF-8/; s/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+locale-gen
+echo LANG=de_DE.UTF-8 > /etc/locale.conf
+echo KEYMAP=de-latin1 > /etc/vconsole.conf
+echo "$HOST" > /etc/hostname
+useradd -m -G wheel,video,input,audio -s /bin/bash "$USERNAME"
+echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/10-wheel
+chmod 440 /etc/sudoers.d/10-wheel
+passwd -l root
+sed -i 's/^#\?GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR="Glimra OS"/' /etc/default/grub
+grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GlimraOS
+# Schnappschüsse: vor jedem Update automatisch (snap-pac), im Bootmenü wählbar (grub-btrfs)
+umount /.snapshots
+rm -rf /.snapshots
+snapper --no-dbus -c root create-config /
+btrfs subvolume delete /.snapshots
+mkdir /.snapshots
+mount -a
+chmod 750 /.snapshots
+sed -i 's/^#\?GRUB_BTRFS_SUBMENUNAME=.*/GRUB_BTRFS_SUBMENUNAME="Glimra OS Backups"/' /etc/default/grub-btrfs/config || true
+grub-mkconfig -o /boot/grub/grub.cfg
+systemctl enable NetworkManager grub-btrfsd snapper-cleanup.timer glimra-bootcheck.service glimra-bootok.timer \
+    systemd-oomd power-profiles-daemon
+systemctl enable bluetooth 2>/dev/null || true
+echo "installiert am \$(date '+%d.%m.%Y')" > /etc/glimra/installed
+CHROOT
+printf '%s:%s\n' "$USERNAME" "$PASS1" | arch-chroot /mnt chpasswd
+
+echo -e "${B}[6/6] Edition einrichten: $EDITION …${N}"
+if [[ $EDITION == desktop ]]; then
+    # automatisch anmelden und die Glimra Shell starten
+    mkdir -p /mnt/etc/systemd/system/getty@tty1.service.d
+    cat > /mnt/etc/systemd/system/getty@tty1.service.d/autologin.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty -o '-p -f -- \\\\u' --noclear --autologin $USERNAME %I \$TERM
+EOF
+else
+    printf '%s\n' "$PANELPW" | arch-chroot /mnt /usr/local/bin/glimra-panel --set-password
+    arch-chroot /mnt /usr/local/bin/glimra-panel --make-cert
+    arch-chroot /mnt systemctl enable glimra-panel sshd
+    printf '%s\n%s\n' "$PASS1" "$PASS1" | arch-chroot /mnt smbpasswd -s -a "$USERNAME" || true
+fi
+
+umount -R /mnt
+echo
+echo -e "${B}  ✓ Glimra OS ist installiert!${N}"
+echo "  Entferne den USB-Stick / die ISO und starte neu:  reboot"

@@ -1,0 +1,12 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "Preferences": {
+      "dom.ipc.processCount": { "Value": 4, "Status": "default" },
+      "browser.tabs.unloadOnLowMemory": { "Value": true, "Status": "default" },
+      "browser.sessionstore.interval": { "Value": 60000, "Status": "default" },
+      "intl.locale.requested": { "Value": "de", "Status": "default" }
+    }
+  }
+}

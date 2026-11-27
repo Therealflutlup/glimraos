@@ -1,0 +1,56 @@
+name: Veröffentlichen
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  release:
+    name: Release erstellen
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version prüfen
+        run: |
+          test "v$(cat VERSION)" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} passt nicht zu VERSION $(cat VERSION)"; exit 1; }
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Prüfsummen und Notizen
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          V=$(cat VERSION)
+          awk -v v="$V" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "### Downloads"
+            echo "| Datei | Wofür |"
+            echo "|---|---|"
+            echo "| glimraos-desktop-$V-x86_64.iso | Glimra OS für PC und Laptop |"
+            echo "| glimraos-server-$V-x86_64.iso | Glimra OS als Heimserver |"
+            echo "| GlimraSetup.exe | Wechsel von Windows: PC prüfen, ISO laden, USB-Stick, Daten-Umzug |"
+            echo "| GlimraApp-$V.apk | Handy-App (Android 8+) |"
+            echo
+            echo "Anleitung: [Handbuch](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/HANDBUCH.md) · Prüfsummen: SHA256SUMS.txt"
+          } >> notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Glimra OS ${{ github.ref_name }}
+          body_path: notes.md
+          files: release/*

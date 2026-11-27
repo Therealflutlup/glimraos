@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+B='\e[1;38;2;91;140;255m'; N='\e[0m'
+IPS=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
+echo
+echo -e "  ${B}Glimra OS Server${N} · $(hostname)"
+if [[ -z "$IPS" ]]; then
+    echo "  Noch keine Netzwerkverbindung."
+else
+    for ip in $IPS; do echo -e "  Glimra Panel:  ${B}https://$ip:8443${N}"; done
+    FP=$(/usr/local/bin/glimra-panel --fingerprint 2>/dev/null)
+    [[ -n $FP ]] && echo "  Zertifikat:   ${FP:0:47}…"
+fi
+echo "  Panel-Status: $(systemctl is-active glimra-panel 2>/dev/null)"
+echo

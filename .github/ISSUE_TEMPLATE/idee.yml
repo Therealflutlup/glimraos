@@ -1,0 +1,11 @@
+name: Idee vorschlagen
+description: Neue Funktion oder Verbesserung
+labels: [idee]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Deine Idee
+      description: Was soll Glimra OS können und wofür brauchst du es?
+    validations:
+      required: true

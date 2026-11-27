@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Installiert Programme für ein Nutzungsprofil oder eine Zusatzfunktion.
+set -euo pipefail
+case "${1:-}" in
+  gaming)    PKGS=(steam gamescope wine wine-mono winetricks gamemode lib32-gamemode mangohud lib32-vulkan-icd-loader) ;;
+  leistung)  PKGS=(power-profiles-daemon btop zram-generator) ;;
+  arbeit)    PKGS=(libreoffice-fresh libreoffice-fresh-de thunderbird thunderbird-i18n-de) ;;
+  apps)      PKGS=(flatpak) ;;
+  vm)        PKGS=(qemu-desktop libvirt virt-install virt-viewer dnsmasq edk2-ovmf swtpm) ;;
+  assistent) PKGS=(python-pip espeak-ng unzip) ;;
+  *) echo "Nutzung: glimra-profile gaming|leistung|arbeit|apps|vm|assistent" >&2; exit 1 ;;
+esac
+[[ $EUID -eq 0 ]] || { echo "Bitte als root ausführen." >&2; exit 1; }
+pacman -Sy --noconfirm --needed "${PKGS[@]}"
+TARGET_USER=${SUDO_USER:-}
+case $1 in
+  leistung) systemctl enable --now power-profiles-daemon || true ;;
+  apps) flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true ;;
+  vm)
+    systemctl enable --now libvirtd
+    virsh -c qemu:///system net-autostart default >/dev/null 2>&1 || true
+    virsh -c qemu:///system net-start default >/dev/null 2>&1 || true
+    [[ -n $TARGET_USER ]] && usermod -aG libvirt "$TARGET_USER"
+    ;;
+  assistent)
+    pip install --break-system-packages --quiet vosk
+    if [[ ! -d /usr/share/glimra/vosk-model-de ]]; then
+      mkdir -p /usr/share/glimra
+      tmp=$(mktemp -d)
+      curl -fL -o "$tmp/model.zip" https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip
+      unzip -q "$tmp/model.zip" -d "$tmp"
+      mv "$tmp"/vosk-model-small-de-* /usr/share/glimra/vosk-model-de
+      rm -rf "$tmp"
+    fi
+    ;;
+esac
+echo "Profil $1 installiert."

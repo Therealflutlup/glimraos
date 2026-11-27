@@ -1,0 +1,12 @@
+# Pakete für beide Editionen (zusätzlich zur Arch-Grundausstattung)
+python
+btrfs-progs
+snapper
+networkmanager
+sudo
+nano
+git
+# sparsam: komprimierter RAM, Energieprofile
+zram-generator
+power-profiles-daemon
+pacman-contrib

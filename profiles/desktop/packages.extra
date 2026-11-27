@@ -1,0 +1,35 @@
+# Glimra OS Desktop
+pyside6
+qt6-base
+qt6-declarative
+qt6-wayland
+qt6-svg
+mesa
+vulkan-icd-loader
+libinput
+foot
+firefox
+firefox-i18n-de
+pcmanfm-qt
+mousepad
+xdg-utils
+pipewire
+pipewire-pulse
+wireplumber
+noto-fonts
+noto-fonts-emoji
+inter-font
+ttf-dejavu
+# Sicherheit, Medien, USB-Sticks
+ufw
+clamav
+playerctl
+udisks2
+udiskie
+python-pip
+# Schnelleinstellungen und Store
+brightnessctl
+libpulse
+bluez
+bluez-utils
+flatpak

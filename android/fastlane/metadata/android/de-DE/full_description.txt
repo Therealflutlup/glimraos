@@ -1,0 +1,18 @@
+Die GlimraApp verbindet dein Handy mit deinem Glimra-OS-PC und deinem Glimra OS Server im Heimnetz.
+
+<b>So einfach geht's</b>
+Die App findet Glimra-OS-Geräte automatisch im WLAN. Einmal mit dem 6-stelligen Code koppeln, der am PC angezeigt wird – fertig.
+
+<b>Funktionen</b>
+• PC sperren, neu starten, ausschalten oder in den Energiesparmodus schicken
+• Zwischenablage vom PC holen oder an den PC senden
+• Fotos und Dateien an den PC schicken (landen im Ordner Downloads)
+• Nachrichten auf dem PC-Bildschirm anzeigen und Links am PC öffnen
+• Lautstärke und Musik steuern
+• „Teilen“ aus jeder App direkt an den PC
+• Glimra Server: Glimra Panel (HTTPS) direkt in der App öffnen
+
+<b>Datenschutz</b>
+Keine Werbung, keine Tracker, kein Konto. Die App spricht nur mit Geräten in deinem eigenen Netzwerk.
+
+GlimraApp ist freie Software (GPL-3.0) und Teil von Glimra OS.

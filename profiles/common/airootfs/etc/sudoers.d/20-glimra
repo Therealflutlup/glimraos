@@ -1,0 +1,6 @@
+# Glimra Shell: feste Systemhelfer ohne Passwort (die Skripte prüfen ihre Argumente selbst).
+Cmnd_Alias GLIMRA_PROFILE = /usr/local/bin/glimra-profile gaming, /usr/local/bin/glimra-profile leistung, /usr/local/bin/glimra-profile arbeit, /usr/local/bin/glimra-profile apps, /usr/local/bin/glimra-profile vm, /usr/local/bin/glimra-profile assistent
+Cmnd_Alias GLIMRA_SECURITY = /usr/local/bin/glimra-security status, /usr/local/bin/glimra-security firewall on, /usr/local/bin/glimra-security firewall off, /usr/local/bin/glimra-security update
+Cmnd_Alias GLIMRA_BACKUP = /usr/local/bin/glimra-backup list, /usr/local/bin/glimra-backup create *, /usr/local/bin/glimra-backup restore *
+Cmnd_Alias GLIMRA_STORE = /usr/local/bin/glimra-store install *, /usr/local/bin/glimra-store remove *, /usr/local/bin/glimra-store update
+%wheel ALL=(root) NOPASSWD: GLIMRA_PROFILE, GLIMRA_SECURITY, GLIMRA_BACKUP, GLIMRA_STORE, /usr/local/bin/glimra-bootok

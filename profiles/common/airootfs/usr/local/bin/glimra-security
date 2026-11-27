@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Sicherheits-Helfer für die Glimra Shell (läuft als root über sudoers).
+set -euo pipefail
+case "${1:-}" in
+  status)
+    fw="nicht installiert"
+    if command -v ufw >/dev/null; then
+      if ufw status 2>/dev/null | head -1 | grep -q 'Status: active'; then fw=active; else fw=inactive; fi
+    fi
+    db=""
+    for f in /var/lib/clamav/daily.cld /var/lib/clamav/daily.cvd; do
+      [[ -f $f ]] && db=$(date -r "$f" '+%d.%m.%Y %H:%M') && break
+    done
+    printf '{"firewall": "%s", "db": "%s"}\n' "$fw" "$db"
+    ;;
+  firewall)
+    command -v ufw >/dev/null || { echo "ufw fehlt" >&2; exit 1; }
+    if [[ ${2:-} == on ]]; then
+      ufw default deny incoming
+      ufw default allow outgoing
+      ufw allow 8765/tcp comment 'Glimra Remote'
+      ufw allow 8766/udp comment 'Glimra Suche'
+      [[ -f /etc/glimra/edition && $(cat /etc/glimra/edition) == server ]] && { ufw allow 22/tcp; ufw allow 8080/tcp; ufw allow 8443/tcp; ufw allow samba || true; }
+      ufw --force enable
+      systemctl enable ufw
+    elif [[ ${2:-} == off ]]; then
+      ufw --force disable
+      systemctl disable ufw
+    else
+      exit 1
+    fi
+    ;;
+  update)
+    command -v freshclam >/dev/null || { echo "ClamAV fehlt" >&2; exit 1; }
+    freshclam --quiet
+    ;;
+  *) echo "Nutzung: glimra-security status|firewall on|off|update" >&2; exit 1 ;;
+esac
