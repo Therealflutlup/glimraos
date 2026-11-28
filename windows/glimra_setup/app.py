@@ -607,7 +607,7 @@ class App(tk.Tk):
         line2.pack(fill="x", padx=14, pady=(0, 10))
         actions = tk.Frame(box, bg=BG)
         actions.pack(fill="both", expand=True, pady=(10, 0))
-        state = {"features": None, "launch": []}
+        state = {"features": "noch nicht geladen", "launch": []}   # Ältere Glimra-Versionen melden keine features
 
         def call(path, body=None, ok_text="OK", confirm=None):
             if confirm and not messagebox.askyesno("Glimra", confirm):
@@ -742,14 +742,15 @@ class App(tk.Tk):
                     line2.configure(text=f"RAM {d.get('ram', '–')}   ·   läuft seit {d.get('uptime', '–')}   ·   Akku {d.get('battery', '–')}"
                                          f"   ·   IP {d.get('ip', '–')}{extra}" + (f"\nAngemeldet: {users}" if users else ""))
                     state["launch"] = d.get("launch", [])
-                    if state["features"] != d.get("features"):
-                        state["features"] = d.get("features")
-                        build(d.get("features"))
+                    feats = d.get("features") or []
+                    if state["features"] != feats:
+                        state["features"] = feats
+                        build(feats)
                 elif code == 401:
                     line1.configure(text="Kopplung abgelaufen – PC entfernen und neu koppeln", fg=BAD)
                 else:
                     line1.configure(text=d.get("error", "nicht erreichbar"), fg=BAD)
-                    if state["features"] is None:
+                    if state["features"] == "noch nicht geladen":
                         state["features"] = []
                         build([])
                 self._remote_after = self.after(5000, refresh)
